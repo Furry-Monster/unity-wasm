@@ -1,0 +1,13 @@
+﻿{
+    "generated_at_utc": "2026-06-21T14:13:09.9526570Z",
+    "tools": [
+        {
+            "id": "com.fumo.selection-logger",
+            "name": "Selection Logger",
+            "version": "0.1.0",
+            "abi": "editor-api/1",
+            "wasm_path": "/home/furrymonster/Projects/Misc/unity-wasm/examples/selection-logger/bin/tool.wasm",
+            "menu": "Tools/Wasm Editor/Run/Selection Logger"
+        }
+    ]
+}
