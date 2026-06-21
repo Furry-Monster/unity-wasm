@@ -1,0 +1,86 @@
+# =============================================================================
+# unity-wasm — Editor WASM extension platform
+# =============================================================================
+
+# --- Cursor / IDE ---
+.cursor/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+
+# --- OS junk ---
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# --- Unity (any nested project, e.g. sample-project/) ---
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+[Ss]creenshots/
+
+# Unity auto-generated solution/project files
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity local/editor state
+*.dwlt
+InitTestScene*.unity
+UpgradeLog.htm
+sysinfo.txt
+
+# Burst / Addressables (if added later)
+*burst-debug/
+**/aa/
+
+# Android / Gradle (harmless if never used)
+.gradle/
+
+# --- Rust / native tool builds ---
+**/target/
+
+# --- WASM artifacts ---
+# Ignore locally built modules; allow checked-in example binaries only.
+*.wasm
+!examples/**/bin/*.wasm
+
+# Static Wasmtime archives are not needed at runtime (shared libs are enough).
+packages/**/Plugins/**/*.a
+packages/**/Plugins/**/*.a.meta
+
+# --- Local / ephemeral outputs ---
+*.log
+*.tmp
+*.bak
+unity-wasm-fix-request.json
+
+# --- Secrets (never commit) ---
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+
+# --- Optional: uncomment to ignore editor-exported schemas/registry ---
+# schemas/tool-registry.json

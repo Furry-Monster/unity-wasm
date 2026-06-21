@@ -1,0 +1,11 @@
+{
+  "name": "com.fumo.wasmtime",
+  "version": "16.0.0",
+  "displayName": "Wasmtime Native",
+  "description": "Wasmtime native libraries for Unity Editor (x86_64 / ARM64).",
+  "unity": "2022.3",
+  "author": {
+    "name": "Bytecode Alliance",
+    "url": "https://github.com/bytecodealliance/wasmtime"
+  }
+}

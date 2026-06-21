@@ -1,0 +1,14 @@
+{
+  "name": "com.fumo.wasmtime-dotnet",
+  "version": "16.0.0",
+  "displayName": "Wasmtime .NET",
+  "description": ".NET embedding of Wasmtime for Unity Editor.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.fumo.wasmtime": "16.0.0"
+  },
+  "author": {
+    "name": "Bytecode Alliance",
+    "url": "https://github.com/bytecodealliance/wasmtime-dotnet"
+  }
+}

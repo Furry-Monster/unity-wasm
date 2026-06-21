@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "com.fumo.editor-wasm": "file:../../packages/com.fumo.editor-wasm",
+    "com.fumo.wasmtime": "file:../../packages/com.fumo.wasmtime",
+    "com.fumo.wasmtime-dotnet": "file:../../packages/com.fumo.wasmtime-dotnet",
+    "com.unity.toolchain.linux-x86_64": "2.0.11",
+    "com.unity.modules.uielements": "1.0.0"
+  }
+}

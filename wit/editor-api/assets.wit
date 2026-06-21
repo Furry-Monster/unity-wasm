@@ -1,0 +1,21 @@
+package fumo:editor-api@1;
+
+/// Tier 2 — asset database queries (read-only).
+interface editor-assets {
+  /// Find asset GUID paths matching a filter under search paths.
+  find-assets: func(filter: string, search-paths: list<string>) -> list<string>;
+
+  /// Load a text asset at the given project-relative path.
+  load-text-asset: func(path: string) -> result<string, string>;
+
+  /// Check whether an asset exists at the given path.
+  asset-exists: func(path: string) -> bool;
+}
+
+/// Bulk data transfer via guest linear memory.
+/// Header layout (little-endian): magic u32, version u16, type u16, payload_len u32.
+interface editor-memory {
+  /// Read a bulk payload block written by the host into guest memory at offset.
+  /// Returns bytes read, or -1 on error.
+  read-bulk-header: func(offset: u32) -> s32;
+}

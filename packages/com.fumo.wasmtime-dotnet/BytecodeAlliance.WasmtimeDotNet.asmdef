@@ -1,0 +1,16 @@
+{
+  "name": "BytecodeAlliance.WasmtimeDotNet",
+  "rootNamespace": "Wasmtime",
+  "references": [],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": true,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

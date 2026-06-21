@@ -1,0 +1,98 @@
+﻿{
+    "abi": "editor-api/1",
+    "description": "Unity Editor WASM host API for tool agents.",
+    "tools": [
+        {
+            "name": "editor_core.log",
+            "description": "Write a message to the Unity console.",
+            "returns": "void",
+            "parameters": [
+                {
+                    "name": "level",
+                    "type": "integer"
+                },
+                {
+                    "name": "message",
+                    "type": "string"
+                }
+            ]
+        },
+        {
+            "name": "editor_core.log_error",
+            "description": "Write an error to the Unity console.",
+            "returns": "void",
+            "parameters": [
+                {
+                    "name": "message",
+                    "type": "string"
+                }
+            ]
+        },
+        {
+            "name": "editor_core.get_editor_time",
+            "description": "Unity EditorApplication.timeSinceStartup.",
+            "returns": "number",
+            "parameters": []
+        },
+        {
+            "name": "editor_selection.get_active_object",
+            "description": "Primary selected object handle.",
+            "returns": "integer",
+            "parameters": []
+        },
+        {
+            "name": "editor_selection.get_active_asset_path",
+            "description": "Asset path of active selection.",
+            "returns": "string",
+            "parameters": []
+        },
+        {
+            "name": "editor_selection.get_object_name",
+            "description": "Object name for handle.",
+            "returns": "string",
+            "parameters": [
+                {
+                    "name": "handle",
+                    "type": "integer"
+                }
+            ]
+        },
+        {
+            "name": "editor_assets.find_assets",
+            "description": "Find assets by filter.",
+            "returns": "array",
+            "parameters": [
+                {
+                    "name": "filter",
+                    "type": "string"
+                },
+                {
+                    "name": "search_paths",
+                    "type": "array"
+                }
+            ]
+        },
+        {
+            "name": "editor_assets.load_text_asset",
+            "description": "Load TextAsset contents.",
+            "returns": "string",
+            "parameters": [
+                {
+                    "name": "path",
+                    "type": "string"
+                }
+            ]
+        },
+        {
+            "name": "editor_assets.asset_exists",
+            "description": "Whether asset exists.",
+            "returns": "boolean",
+            "parameters": [
+                {
+                    "name": "path",
+                    "type": "string"
+                }
+            ]
+        }
+    ]
+}

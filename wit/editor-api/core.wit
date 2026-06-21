@@ -1,0 +1,26 @@
+package fumo:editor-api@1;
+
+/// Logging levels for editor console output.
+enum log-level {
+  info,
+  warning,
+  error,
+}
+
+/// Tier 0 — core editor services available to all tools.
+interface editor-core {
+  /// Write a message to the Unity console.
+  log: func(level: log-level, message: string);
+
+  /// Write an error to the Unity console.
+  log-error: func(message: string);
+
+  /// Returns Unity EditorApplication.timeSinceStartup.
+  get-editor-time: func() -> f64;
+
+  /// Show a modal progress bar in the editor.
+  show-progress: func(title: string, info: string, progress: f32);
+
+  /// Clear the progress bar.
+  clear-progress: func();
+}
