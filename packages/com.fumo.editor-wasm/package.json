@@ -1,0 +1,14 @@
+{
+  "name": "com.fumo.editor-wasm",
+  "version": "0.1.0",
+  "displayName": "Wasm Editor",
+  "description": "WebAssembly editor extension platform for Unity 2022 LTS.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.fumo.wasmtime-dotnet": "16.0.0"
+  },
+  "author": {
+    "name": "Fumo",
+    "url": "https://github.com/fumo/unity-wasm"
+  }
+}

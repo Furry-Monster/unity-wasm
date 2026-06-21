@@ -1,0 +1,19 @@
+package fumo:editor-api@1;
+
+/// Opaque handle to a UnityEngine.Object in the host.
+type object-handle = u64;
+
+/// Tier 1 — selection and active context.
+interface editor-selection {
+  /// Returns the primary selected object, or none.
+  get-active-object: func() -> option<object-handle>;
+
+  /// Returns all currently selected objects.
+  get-active-objects: func() -> list<object-handle>;
+
+  /// Returns the asset path of the active selection, if any.
+  get-active-asset-path: func() -> option<string>;
+
+  /// Returns the name of an object referenced by handle.
+  get-object-name: func(handle: object-handle) -> option<string>;
+}
