@@ -15,6 +15,7 @@ namespace Fumo.EditorWasm
         readonly Dictionary<string, DateTime> _pendingReload = new();
         readonly Dictionary<string, WasmEditorHost> _hosts = new();
         readonly Dictionary<string, ToolManifest> _manifests = new();
+        readonly Dictionary<string, DateTime> _lastReloadUtc = new();
 
         bool _disposed;
         double _lastPollTime;
@@ -24,13 +25,23 @@ namespace Fumo.EditorWasm
 
         public IReadOnlyDictionary<string, WasmEditorHost> Hosts => _hosts;
 
+        public DateTime? GetLastReloadUtc(string toolId)
+        {
+            if (_lastReloadUtc.TryGetValue(toolId, out var utc))
+                return utc;
+            return null;
+        }
+
         public void Register(ToolManifest manifest)
         {
             if (manifest == null || string.IsNullOrEmpty(manifest.id))
                 return;
 
             _manifests[manifest.id] = manifest;
+            var isNewHost = !_hosts.ContainsKey(manifest.id);
             EnsureHost(manifest);
+            if (isNewHost)
+                RecordReload(manifest.id);
             Watch(manifest);
         }
 
@@ -86,6 +97,7 @@ namespace Fumo.EditorWasm
                 {
                     var host = EnsureHost(manifest);
                     host.ReloadFromDisk();
+                    RecordReload(toolId);
                     ToolReloaded?.Invoke(manifest);
                     Debug.Log($"[WasmEditor] Hot-reloaded '{manifest.name}' ({manifest.id})");
                 }
@@ -95,6 +107,8 @@ namespace Fumo.EditorWasm
                 }
             }
         }
+
+        void RecordReload(string toolId) => _lastReloadUtc[toolId] = DateTime.UtcNow;
 
         WasmEditorHost EnsureHost(ToolManifest manifest)
         {
@@ -150,6 +164,7 @@ namespace Fumo.EditorWasm
             _hosts.Clear();
             _manifests.Clear();
             _pendingReload.Clear();
+            _lastReloadUtc.Clear();
             _disposed = true;
         }
     }

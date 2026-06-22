@@ -9,7 +9,7 @@ WebAssembly editor extension platform for **Unity 2022 LTS**. Run Rust/AssemblyS
 - **Hot reload** — rebuild `.wasm` without Domain Reload
 - **Structured trap reports** — AI-friendly JSON diagnostics
 - **WIT contracts** — `wit/editor-api/` defines the ABI
-- **Example tool** — `examples/selection-logger`
+- **Example tools** — `selection-logger`, `asset-scanner`
 
 ## Quick Start
 
@@ -17,23 +17,34 @@ WebAssembly editor extension platform for **Unity 2022 LTS**. Run Rust/AssemblyS
 
 Open `sample-project/` in Unity **2022.3 LTS**.
 
-### 2. Build example tool
+### 2. Build example tools
 
 ```bash
-cd examples/selection-logger
-./build.sh
+./scripts/build-all-examples.sh
+```
+
+Or build individually:
+
+```bash
+cd examples/selection-logger && ./build.sh
+cd examples/asset-scanner && ./build.sh
 ```
 
 ### 3. Run in Unity
 
 1. **Tools → Wasm Editor → Refresh Tools**
-2. Select any asset or GameObject in the Hierarchy
-3. **Tools → Wasm Editor → Run → Selection Logger**
-4. Open **Window → Wasm Editor → Tool Shell** for logs
+2. **Tools → Wasm Editor → Run Tool...** — pick Selection Logger or Asset Scanner
+3. Optional: **Tools → Wasm Editor → Open Tool Shell** for logs, trap JSON, and reload times
 
 ### 4. Hot reload
 
-With Unity open, edit `examples/selection-logger/src/lib.rs` and run `./build.sh` again. The host reloads within ~300ms.
+With Unity open, edit `examples/*/src/lib.rs` and run `./build.sh`. The host reloads within ~300ms.
+
+## Tool Development
+
+See **[docs/getting-started-tool-dev.md](docs/getting-started-tool-dev.md)** for the full guide (template, `tool.json`, Host imports, traps, placement paths).
+
+Copy `sdk/rust/template/` to start a new tool.
 
 ## Project Layout
 
@@ -41,9 +52,10 @@ With Unity open, edit `examples/selection-logger/src/lib.rs` and run `./build.sh
 packages/com.fumo.editor-wasm/   # UPM host package
 packages/com.fumo.wasmtime*/     # Wasmtime native + .NET bindings
 wit/editor-api/                  # WIT interface definitions
-examples/selection-logger/       # Rust example tool
+examples/                        # Rust example tools
+sdk/rust/template/               # Copyable tool template
 sample-project/                  # Unity sample project
-sdk/                             # Tool templates
+scripts/build-all-examples.sh    # Local batch build
 docs/                            # Architecture & guides
 schemas/                         # Exported JSON Schema for AI agents
 ```
@@ -72,8 +84,9 @@ Place tools under `Assets/Editor/Tools/<your-tool>/tool.json` + `bin/tool.wasm`.
   "name": "My Tool",
   "abi": "editor-api/1",
   "entry": "bin/tool.wasm",
-  "menu": "Tools/My Tool",
   "exports": {
+    "on_init": "on_init",
+    "on_shutdown": "on_shutdown",
     "on_menu_click": "on_menu_click"
   }
 }
@@ -84,7 +97,8 @@ Place tools under `Assets/Editor/Tools/<your-tool>/tool.json` + `bin/tool.wasm`.
 | Menu | Action |
 |------|--------|
 | Tools → Wasm Editor → Refresh Tools | Rescan tool.json manifests |
-| Tools → Wasm Editor → Open Tool Shell | Log / trap panel |
+| Tools → Wasm Editor → Run Tool... | Dynamic menu of discovered tools |
+| Tools → Wasm Editor → Open Tool Shell | Launcher, logs, trap panel |
 | Tools → Wasm Editor → Export API Schema | Write `schemas/editor-api.schema.json` |
 | Tools → Wasm Editor → Generate Host Bindings | Generate API registry |
 

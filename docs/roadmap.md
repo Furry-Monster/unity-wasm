@@ -1,21 +1,27 @@
-# unity-wasm 开发路线图（M1–M4）
+# unity-wasm 开发路线图（M1–M4 + UI 平台）
 
-> **文档用途**：作为后续分阶段 Plan 与实现的**总纲**。每个里程碑（M1～M4）将单独产出详细 Plan 并编码；本文只定义边界、交付物、任务粒度与验收标准。
+> **文档用途**：后续分阶段 Plan 与实现的**总纲**。每个里程碑将单独产出详细 Plan（如 [M1 Plan](../.cursor/plans/m1_team_ready_plan_cc64b348.plan.md)）并编码。
 >
-> **最后更新**：2026-06（基于 MVP 已跑通：`selection-logger` + 热重载 + Trap 报告）
+> **最后更新**：2026-06-21（整合 UI 策略、开源参考、M3.5 声明式 UI 平台；WebView 降为可选）
 
 ---
 
-## 0. 项目定位（不变）
+## 0. 项目定位
 
 | 项 | 内容 |
 |----|------|
 | 产品 | Unity Editor WASM 扩展平台（`com.fumo.editor-wasm`） |
 | 用户 | 引擎工具组 / 客户端工具组 |
-| 运行环境 | Unity 2022.3 LTS Editor（Win / macOS / Linux） |
-| 明确不做 | 游戏运行时 Mod、出包、IL2CPP、移动端、完整 UnityEditor 反射暴露 |
+| 运行环境 | Unity **2022.3 LTS** Editor（Win / macOS / Linux） |
+| 明确不做 | 游戏运行时 Mod、出包、IL2CPP、移动端、完整 `UnityEditor` 反射暴露 |
 
-**核心价值排序**：崩溃隔离 → 免 Domain Reload 热重载 → 多语言工具 → 现代调试 → AI 友好 Schema
+**核心价值排序**：
+
+1. 崩溃隔离（WASM 沙箱）
+2. **双热更** — 逻辑（`.wasm`）与 UI（声明式资产）均避免 Domain Reload
+3. 多语言工具（Rust 为主，AS 可选）
+4. Unity **原生 GUI 观感**（UI Toolkit，非 WebView 默认）
+5. 现代调试 + AI 友好 Schema
 
 ---
 
@@ -23,450 +29,425 @@
 
 ### 1.1 已实现
 
-- **运行时**：Wasmtime .NET + Native 插件；`WasmEditorHost`（Load / Call / Unload / Fuel / MemoryLimit / TrapReport）
-- **Host API**：`editor_core`、`editor_selection`、`editor_assets`（Tier 0–2，C# 手工实现）
-- **基础设施**：`ToolDiscoveryService`、`HotReloadService`（300ms debounce）、`HandlePool`、`ToolWindowShell`
-- **契约**：`wit/editor-api/`（文档级 WIT，与实现未完全代码生成联动）
-- **示例**：`examples/selection-logger`（Rust + 预编译 `bin/tool.wasm`）
-- **辅助**：`SchemaExporter`、`ToolRegistryExporter`、`HostBindingGenerator`（基础）、`WebViewBridge` / `SelfHealingLoop`（占位）
-- **工程**：`sample-project`、`.gitignore`、`docs/*`
+| 类别 | 内容 |
+|------|------|
+| 运行时 | Wasmtime .NET + Native；`WasmEditorHost`（Load/Call/Unload、Fuel、MemoryLimit、TrapReport） |
+| Host API | `editor_core`、`editor_selection`、`editor_assets`（Tier 0–2，C# 手工实现） |
+| 基础设施 | `ToolDiscoveryService`、`HotReloadService`（300ms debounce）、`HandlePool`、`ToolWindowShell` |
+| 契约 | `wit/editor-api/`（文档级 WIT，与实现未完全代码生成联动） |
+| 示例 | `examples/selection-logger` |
+| 辅助 | Schema/Registry 导出、`HostBindingGenerator`（基础）、`WebViewBridge`/`SelfHealingLoop`（占位） |
+| 工程 | `sample-project`、`.gitignore`、`docs/*` |
 
 ### 1.2 已知缺口（驱动 M1+）
 
 1. 工具菜单写死（`tool.json.menu` 未驱动动态入口）
 2. WIT 与 C# / Rust 实现双轨（无 wit-bindgen / Host 生成）
-3. 仅 1 个示例，Tier 2 资产 API 未经真实工具验证
-4. 无 Tier 3（Scene 只读）/ Tier 4（写操作）
-5. 无 CI、无正式 Rust SDK 模板
-6. WebView / AI 闭环未实现
+3. 仅 1 个示例，Tier 2 未经真实工具验证
+4. 无 Tier 3（Scene 只读）/ Tier 4（写操作）/ **`editor_ui`（UI 绑定）**
+5. 无正式 Rust SDK 模板
+6. **UI 仅手写 UIElements Shell**，无 TS/声明式 UI 热更路径
 
 ---
 
-## 2. 里程碑总览
+## 2. 总体架构：双热更 + 原生渲染
+
+### 2.1 设计原则（已决策）
+
+| 原则 | 说明 |
+|------|------|
+| **宿主 C# 薄且稳定** | 平台组维护；变更触发 Domain Reload，应尽量少 |
+| **逻辑在 WASM** | Rust（重计算）/ AS（轻逻辑）；`.wasm` 热更 |
+| **UI 在声明式资产** | 不生成 C# `EditorWindow` 业务代码；热更 `ui.json` / UXML+USS |
+| **渲染在 UITK** | 原生 Editor 主题；**默认不用 WebView** |
+| **WebView 可选** | 仅极少数复杂可视化工具（节点图、大表格），M4 POC |
+
+### 2.2 目标架构
+
+```mermaid
+flowchart TB
+    subgraph ui_dev [UI 开发 可热更]
+        TS["TypeScript / 声明式 DSL"]
+        BuildUI["build-ui → ui.json 或 UXML+USS"]
+    end
+
+    subgraph logic_dev [逻辑开发 可热更]
+        Rust["Rust → tool.wasm"]
+    end
+
+    subgraph host [C# 宿主 稳定层]
+        Shell["ToolPanelHost / ToolWindowShell"]
+        Renderer["UiSchemaRenderer → UIElements"]
+        Bridge["EditorHostBridge + editor_ui"]
+        WasmHost["WasmEditorHost"]
+    end
+
+    TS --> BuildUI
+    BuildUI -->|FileWatcher| Renderer
+    Rust -->|HotReloadService| WasmHost
+    Renderer --> Shell
+    WasmHost --> Bridge
+    Bridge --> Shell
+    Renderer <-->|state / events| Bridge
+```
+
+### 2.3 UI 路线对比（M3.5 前 Spike 定案）
+
+| 路线 | 热更 UI | 原生观感 | 2022.3 可行 | 推荐 |
+|------|---------|----------|-------------|------|
+| A. `ui.json` + C# `UiSchemaRenderer` | 是 | 高 | 是 | **默认首选** |
+| B. TS → UXML/USS + FileWatcher 重载 | 是 | 高 | 是（Live Reload 在 Unity 6 更完整；2022 可 FileWatcher 读字符串挂载） | 备选 |
+| C. TS/JSX → UITK（OneJS 式桥接） | 是 | 高 | 需评估依赖 | M3.5 Spike |
+| D. TS → 生成 C# EditorWindow | 否 | 高 | 是 | **不采用** |
+| E. 纯 WebView + React | UI 热更好 | 低 | 是 | **仅 M4 可选 POC** |
+
+### 2.4 开源参考（按层组合，无一体化现成项目）
+
+| 层 | 参考项目 | 借鉴点 |
+|----|----------|--------|
+| WASM 宿主 | [godot-wasm](https://github.com/ashtonmeuser/godot-wasm)（工作区） | load/import/热换模块、Capability API |
+| Unity + Wasmtime | [Wasmbox](https://placeholder-software.github.io/wasmbox/)、[wasmtime-dotnet-unity](https://github.com/mochi-neko/wasmtime-dotnet-unity) | Linker、Editor 集成 |
+| WIT 插件 | [wit-bindgen](https://github.com/bytecodealliance/wit-bindgen)、[Wasmtime wasip2 plugins](https://bytecodealliance.github.io/wasmtime/wasip2-plugins.html) | M2 契约与加载流程 |
+| **UI：TS → 原生 UITK** | **[OneJS](https://github.com/Singtaa/OneJS)**、**[Preactor](https://github.com/Rikarin/preactor/)** | JSX/Preact→UITK、无 WebView、watch 热更 |
+| Loader / 白名单 | [xLua](file:///home/furrymonster/Projects/Utils/UnityPlugins/xLua)（工作区） | CustomLoader、GenAttributes、Tutorial |
+| C# 热更（对照，非主路径） | [FastScriptReload](https://github.com/handzlikchris/FastScriptReload) | 说明 Domain Reload 问题与「动字节码/资产」思路 |
+
+---
+
+## 3. 里程碑总览
 
 ```mermaid
 flowchart TB
     MVP["MVP Done"] --> M1
-    M1["M1 团队可用\n~4-6周"] --> M2
-    M2["M2 API与SDK\n~4-6周"] --> M3
-    M3["M3 生产工具\n~4-8周"] --> M4
-    M4["M4 AI与UI\n可选"]
+    M1["M1 团队可用\n4-6周"] --> M2
+    M2["M2 API与SDK\n4-6周"] --> M3
+    M3["M3 生产工具\n4-8周"] --> M35
+    M35["M3.5 声明式UI平台\n4-6周"] --> M4
+    M4["M4 AI与可选增强\n可选"]
 ```
 
-| 里程碑 | 一句话目标 | 完成后团队能做什么 |
-|--------|------------|-------------------|
-| **M1** | 多人可独立开发并运行第 2、3 个工具 | 加 `tool.json` 即可跑，不改编宿主 C# |
-| **M2** | WIT 与实现一致，Rust SDK 正式化 | 改 WIT → 生成绑定，工具按 SDK 写 |
-| **M3** | 支撑扫描/检查类生产工具 | 大项目资产遍历、只读/可控写操作 |
-| **M4** | 富 UI + AI 辅助闭环（可选） | Web 面板 + Trap 驱动半自动修复 |
+| 里程碑 | 一句话目标 | 完成后能做什么 |
+|--------|------------|----------------|
+| **M1** | 多人独立开发第 2、3 个工具 | 加 `tool.json` 即可 Run，零 C# 改动 |
+| **M2** | WIT 与实现一致，Rust SDK 正式化 | 改 WIT → 生成绑定；ABI 校验 |
+| **M3** | 支撑扫描/检查类生产工具 | 大项目资产遍历、mutating + Undo |
+| **M3.5** | **Web 式 UI 效率 + UITK 原生观感** | TS/JSON 热更 UI + WASM 逻辑分离 |
+| **M4** | AI 上下文 + 半自动修复；WebView 仅 POC | Agent 包、Trap 闭环；复杂 UI 试点 |
 
-**依赖关系**：M2 依赖 M1 至少 2 个示例反馈；M3 依赖 M2 ABI 稳定；M4 依赖 M2 SDK 与 M1 工具流程。
-
----
-
-## 3. M1 — 团队可用
-
-### 3.1 目标
-
-从「Demo 能跑」升级为「工具组可日常接活」：新工具零 C# 改动、有模板、有第二示例、有基础 CI。
-
-### 3.2 交付物清单
-
-| ID | 交付物 | 类型 |
-|----|--------|------|
-| M1-D1 | 动态工具启动入口（菜单或 Launcher 窗口） | 代码 |
-| M1-D2 | `examples/asset-scanner` 示例工具 | 代码 + wasm |
-| M1-D3 | `sdk/rust/template` 可复制模板 | 仓库 |
-| M1-D4 | Tool Shell 增强（工具列表 / Run / Trap 复制） | 代码 |
-| M1-D5 | CI：构建全部 examples 的 wasm | 配置 |
-| M1-D6 | `docs/getting-started-tool-dev.md` | 文档 |
-
-### 3.3 任务分解（可单独开 Plan / Issue）
-
-#### M1-T1 动态工具入口
-
-- **内容**：
-  - 方案 A（推荐）：`Tools → Wasm Editor → Run Tool →` 子菜单由 `ToolDiscoveryService.DiscoverAll()` 动态填充
-  - 方案 B（并行）：Tool Shell 内工具列表 + Run 按钮
-  - Refresh Tools 后更新菜单/列表；按 `tool.json.id` 调用 `WasmEditorRuntime.InvokeTool(id)`
-- **不在此任务**：快捷键（可 M1-T7 后续）、动态 `[MenuItem]` 反射注册
-- **验收**：
-  - 新增仅含 `tool.json` + `bin/tool.wasm` 的目录，Refresh 后可见并可 Run
-  - 无需修改 `UnityWasmMenu.cs` / `ToolMenuRegistry`
-
-#### M1-T2 示例 `asset-scanner`
-
-- **内容**：
-  - 调用 `editor_assets.find_assets_count` / `find_asset_at`
-  - 调用 `editor_core.show_progress` / `clear_progress`
-  - 扫描 `Assets` + filter 如 `t:Texture` 或 `t:Prefab`
-  - 输出：总数 + 抽样前 N 条路径到 log
-- **验收**：
-  - 中型项目（1k+ 资产）可跑完且有进度条
-  - trap 不杀 Editor；Tool Shell 可见日志
-
-#### M1-T3 Rust 模板 `sdk/rust/template`
-
-- **内容**：
-  - `Cargo.toml`（cdylib、`CARGO_TARGET_DIR=target` 说明）
-  - `src/lib.rs`：export 骨架 + 常用 import 声明
-  - `tool.json` 模板、`build.sh`
-  - 与 `docs/host-api.md` import 模块名一致
-- **验收**：按 README 复制模板 → 30 分钟内得到可加载的 hello 工具
-
-#### M1-T4 Tool Shell 增强
-
-- **内容**：
-  - 已发现工具列表（id / name / abi / wasm 路径）
-  - 每工具 Run 按钮；显示 last reload 时间
-  - Trap 区域「复制 JSON」按钮
-  - 可选：当前选中工具状态
-- **验收**：Selection Logger + asset-scanner 均可在 Shell 内 Run
-
-#### M1-T5 CI 构建 wasm
-
-- **内容**：
-  - GitHub Actions（或同等）：`rustup target add wasm32-unknown-unknown`
-  - 对 `examples/*/build.sh` 或统一 `scripts/build-all-examples.sh` 执行
-  - 失败则 PR 红
-- **验收**：改 `selection-logger` 破坏 export 名 → CI 失败
-
-#### M1-T6 工具开发者文档
-
-- **内容**：
-  - 目录结构、`tool.json` 字段、export 约定
-  - build / 热重载 / 调试 trap / 常见错误
-  - 与 README Quick Start 分工：README 面向试用，本文面向开发
-- **验收**：新同事仅读此文可完成首个工具
-
-#### M1-T7（可选）快捷键
-
-- **内容**：解析 `tool.json.shortcut`，接 Unity `ShortcutManagement`
-- **验收**：配置 shortcut 的工具可通过快捷键 Run
-
-### 3.4 M1 整体验收标准
-
-- [ ] ≥2 个示例工具（selection-logger + asset-scanner）在 sample-project 中可发现、可 Run、可热重载
-- [ ] 第 3 个工具由工具组按模板独立完成，平台组零 C# 改动
-- [ ] CI 通过 wasm 构建
-- [ ] 删除 `ToolMenuRegistry` 中写死的 `RunSelectionLogger`（或仅作 fallback 示例）
-
-### 3.5 M1 风险
-
-| 风险 | 缓解 |
-|------|------|
-| 动态菜单在 Unity 版本间行为差异 | 优先 Tool Shell Launcher，菜单为补充 |
-| asset-scanner 大项目卡顿 | M1 允许同步+进度条；分帧放 M3 |
+**依赖**：M2 依赖 M1 双示例反馈；M3 依赖 M2 ABI；**M3.5 依赖 M1 工具流程 + M2 的 WIT 扩展能力**；M4 依赖 M2 SDK。
 
 ---
 
-## 4. M2 — API 与 SDK 正式化
+## 4. M1 — 团队可用
+
+> 详细 Plan：[m1_team_ready_plan](../.cursor/plans/m1_team_ready_plan_cc64b348.plan.md)
 
 ### 4.1 目标
 
-消除 WIT / C# / Rust 漂移；建立 ABI 版本策略；补齐 Tier 3 只读 Scene API；调试体验可文档化复现。
+从 Demo 升级为工具组日常接活：动态入口、第二示例、Rust 模板、开发者文档。
 
-### 4.2 交付物清单
+### 4.2 交付物
 
-| ID | 交付物 | 类型 |
-|----|--------|------|
-| M2-D1 | ABI 版本校验（加载时检查 `tool.json.abi`） | 代码 |
-| M2-D2 | WIT → Host import 注册代码生成（或等价契约测试） | 代码 + 脚本 |
-| M2-D3 | Rust wit-bindgen / 生成 guest 绑定 workflow | sdk + 文档 |
-| M2-D4 | Tier 3 `editor-scene` Host 实现 + WIT | 代码 |
-| M2-D5 | 示例 `prefab-inspector-lite` | 代码 + wasm |
-| M2-D6 | 契约测试（wasm 期望 import 与 Host 一致） | 测试 |
-| M2-D7 | `docs/debugging.md` 扩充 + Verbose import log | 文档 + 代码 |
+| ID | 交付物 |
+|----|--------|
+| M1-D1 | 动态工具入口（GenericMenu + Tool Shell Run） |
+| M1-D2 | `examples/asset-scanner` |
+| M1-D3 | `sdk/rust/template` |
+| M1-D4 | Tool Shell 增强（列表 / Run / Trap 复制 / last reload） |
+| M1-D5 | `docs/getting-started-tool-dev.md` |
 
-### 4.3 任务分解
+### 4.3 任务索引
 
-#### M2-T1 ABI 版本策略
+| 任务 | 要点 |
+|------|------|
+| M1-T1 | `Tools → Wasm Editor → Run Tool...` 动态菜单；删硬编码 `RunSelectionLogger` |
+| M1-T2 | asset-scanner：Tier 2 + progress |
+| M1-T3 | Rust 模板 + `CARGO_TARGET_DIR=target` |
+| M1-T4 | Tool Shell Launcher UI |
+| M1-T5 | 工具开发者文档 |
+| M1-T6 | （可选）`tool.json.shortcut` |
 
-- **内容**：
-  - 定义 `editor-api/1` 兼容规则（additive vs breaking）
-  - `WasmEditorHost.Load` 前校验 manifest.abi；不支持则拒绝并 Console 明确报错
-  - 文档：`docs/abi-versioning.md`
-- **验收**：abi 写 `editor-api/99` 的工具无法加载且有提示
+### 4.4 验收
 
-#### M2-T2 Host 绑定生成
+- [ ] ≥2 示例可发现、Run、热重载
+- [ ] 第 3 个工具由工具组按模板独立完成
+- [ ] getting-started 文档可指导新人
 
-- **内容**（二选一，Plan 时定案）：
-  - **路径 A**：从 WIT 生成 `EditorHostBridge.Imports.g.cs`（仅 DefineFunction 注册表）
-  - **路径 B**：手写 + `tests/contract/` wasm 模块断言 import 名/signatures
-- **验收**：WIT 增删 import 后，generate/测试能发现 Host 未同步
-
-#### M2-T3 Rust SDK workflow
-
-- **内容**：
-  - 模板改用 wit-bindgen（或 document 手工 extern 与 WIT 对齐流程）
-  - `sdk/rust/README.md`：build、bindgen、与 Host memory 字符串约定
-  - 迁移 `selection-logger` 或新示例使用生成绑定
-- **验收**：Rust 侧不再复制粘贴 import 签名
-
-#### M2-T4 Tier 3 editor-scene（只读）
-
-- **WIT 草案**：
-  - `get-object-path(handle) -> option<string>`
-  - `get-serialized-property(handle, property-path) -> result<string,string>`（JSON via FMBO）
-- **验收**：prefab-inspector-lite 可读选中 Prefab 根节点组件列表（或 1 层属性）
-
-#### M2-T5 示例 prefab-inspector-lite
-
-- **依赖**：M2-T4
-- **验收**：选中 Prefab 资产 Run 后 Console 输出组件/type 摘要
-
-#### M2-T6 契约测试
-
-- **内容**：最小 wasm 仅调用各 import 一遍；CI 加载并 Instantiate 不报错
-- **验收**：Host 漏注册 import → CI 失败
-
-#### M2-T7 调试增强
-
-- **内容**：Editor 开关 Verbose Host Import Log；Tool Shell 显示最近 N 条 trace
-- **验收**：与 `docs/debugging.md` 步骤一致可复现
-
-### 4.4 M2 整体验收标准
-
-- [ ] WIT 为 import 唯一真理来源（生成或契约测试 enforce）
-- [ ] ≥1 个 Rust 示例使用 wit-bindgen（或官方推荐流程）
-- [ ] Tier 3 只读 API 有示例覆盖
-- [ ] ABI 不匹配时 fail-fast
-
-### 4.5 M2 风险
+### 4.5 风险
 
 | 风险 | 缓解 |
 |------|------|
-| wit-bindgen 与 wasm32-unknown-unknown 工具链复杂度 | M2 Plan 先做 spike（1–2 天） |
-| 生成代码与 Unity asmdef 冲突 | 输出到 `Generated/`，git 跟踪策略在 Plan 中定 |
+| GenericMenu 行为差异 | Tool Shell 为主入口 |
+| asset-scanner 卡顿 | M1 允许同步+进度条；M3 分帧 |
 
 ---
 
-## 5. M3 — 生产级工具支撑
+## 5. M2 — API 与 SDK 正式化
 
 ### 5.1 目标
 
-支撑真实工具链：大资产扫描、Prefab/序列化检查、可控写操作；性能与隔离有规范。
+WIT/C#/Rust 单一真理；ABI 版本；Tier 3 只读 Scene；调试可复现。
 
-### 5.2 交付物清单
+### 5.2 交付物
 
-| ID | 交付物 | 类型 |
-|----|--------|------|
-| M3-D1 | `docs/performance.md` + Host 分帧/进度最佳实践 | 文档 |
-| M3-D2 | 大资产扫描 Host 优化（可选分帧 callback） | 代码 |
-| M3-D3 | Tier 4 `editor-mutating` WIT + Host（独立 interface） | 代码 |
-| M3-D4 | 示例：只写工具（如批量重命名 / 设置单一属性） | 代码 + wasm |
-| M3-D5 | 多工具 HandlePool / Host 实例隔离审计与修复 | 代码 |
-| M3-D6 | AssemblyScript 模板（可选） | sdk |
-| M3-D7 | 示例：命名规范 / 轻量 validator（AS 或 Rust） | 代码 |
+| ID | 交付物 |
+|----|--------|
+| M2-D1 | ABI 版本校验（`tool.json.abi`） |
+| M2-D2 | WIT → Host import 生成 **或** 契约测试（Spike 定案） |
+| M2-D3 | Rust wit-bindgen workflow |
+| M2-D4 | Tier 3 `editor-scene` |
+| M2-D5 | `examples/prefab-inspector-lite` |
+| M2-D6 | 契约 instantiate CI |
+| M2-D7 | Verbose import log + `docs/debugging.md` |
 
-### 5.3 任务分解
+### 5.3 待定决策（M2 Plan 必须定案）
 
-#### M3-T1 性能规范
+| 议题 | 选项 | 建议 |
+|------|------|------|
+| Host 绑定 | A. WIT 生成 `EditorHostBridge.Imports.g.cs` / B. 契约测试 + 手写 | Spike 1–2 天后选；M2 入口 |
+| wit-bindgen 目标 | core wasm vs component model | 与 Wasmtime 16.x 能力对齐后再定 |
 
-- **内容**：
-  - 单次 FFI 字符串上限建议；bulk FMBO 使用场景
-  - 遍历资产必须 progress；万级资产预期行为
-  - 主线程 vs 外部 CLI 分工（重型 pipeline 用 CLI + Editor 触发）
-- **验收**：asset-scanner 按规范 refactor；文档 review 通过
+### 5.4 验收
 
-#### M3-T2 Host 分帧（按需）
-
-- **内容**：`find_assets` 系列支持 batch + cursor；或 EditorApplication.update 驱动多步
-- **触发条件**：M1 asset-scanner 在中型项目明显 freeze >5s
-- **验收**：1 万资产扫描 Editor 可响应 progress 取消（可选）
-
-#### M3-T3 Tier 4 mutating API
-
-- **内容**：
-  - 独立 WIT world / interface：`set-serialized-property`、`save-assets`
-  - 与 Undo 集成（`Undo.RecordObject`）
-  - manifest 标记 `capabilities: ["mutating"]`（可选）
-- **验收**：示例工具完成单一写操作 + Undo 可撤销
-
-#### M3-T4 多工具隔离
-
-- **内容**：审计 `HotReloadService` 多 host；HandlePool  per-host；文档说明 stale handle
-- **验收**：同时加载 2 个工具，交替 Run 无交叉 handle 错误
-
-#### M3-T5 生产向示例（二选一或都做）
-
-- **prefab-checker**：规则检查（命名、缺失组件、layer）
-- **csv-export-lite**：读配置 + 扫描资产 + 输出 CSV 到 Console（不写盘）或 bulk memory
-
-#### M3-T6 AssemblyScript 模板（可选）
-
-- **内容**：`sdk/assemblyscript/template` + 与 Rust 相同 import 名
-- **验收**：AS hello 工具可加载 Run
-
-### 5.4 M3 整体验收标准
-
-- [ ] 至少 1 个「生产复杂度」示例（扫描 + 规则 / 导出）
-- [ ] mutating API 有独立文档与 Code Review 可见边界
-- [ ] 性能文档被工具组采纳
-- [ ] 内部 ≥3 个日常 wasm 工具（含 M1/M2 示例 + 新工具）
-
-### 5.5 M3 风险
-
-| 风险 | 缓解 |
-|------|------|
-| 写 API 导致资产损坏 | 强制 Undo + 示例仅单属性；mutating capability 显式声明 |
-| 分帧过度设计 | 仅在大项目实测后做 M3-T2 |
+- [ ] WIT enforce（生成或测试）
+- [ ] ≥1 示例用 wit-bindgen
+- [ ] ABI mismatch fail-fast
 
 ---
 
-## 6. M4 — AI 与富 UI（可选）
+## 6. M3 — 生产级工具支撑
 
 ### 6.1 目标
 
-Web 工具 UI、Trap 驱动半自动修复、Agent 一体化 Schema；**不**在 Editor 内嵌 LLM。
+真实工具链：扫描/检查/导出；性能规范；可控写操作。
 
-### 6.2 交付物清单
+### 6.2 交付物
 
-| ID | 交付物 | 类型 |
-|----|--------|------|
-| M4-D1 | WebView 选型报告 + 集成 POC | 文档 + 代码 |
-| M4-D2 | `WebViewBridge` 完整 postMessage 协议 | 代码 |
-| M4-D3 | 示例：简单 HTML 面板 + wasm 逻辑分离 | 示例 |
-| M4-D4 | Self-Healing CLI（watch trap json → 提示 rebuild） | 脚本 |
-| M4-D5 | 合并 Agent 包：`agent-context.json`（schema + registry + tools） | 脚本 + 文档 |
-| M4-D6 | 动态 UI 注入（sandbox iframe）POC | 代码 |
+| ID | 交付物 |
+|----|--------|
+| M3-D1 | `docs/performance.md` |
+| M3-D2 | Host 分帧/batch（按需） |
+| M3-D3 | Tier 4 `editor-mutating` + Undo |
+| M3-D4 | 示例：prefab-checker 或 csv-export-lite |
+| M3-D5 | 多工具 HandlePool 隔离审计 |
+| M3-D6 | AssemblyScript 模板（可选） |
 
-### 6.3 任务分解
+### 6.3 验收
 
-#### M4-T1 WebView 选型
-
-- **内容**：Vuplex / 替代方案；License、Linux Editor、维护状态
-- **产出**：`docs/webview-evaluation.md` + 是否引入决策
-
-#### M4-T2 WebView ↔ Host ↔ WASM 协议
-
-- **内容**：消息类型：`run-tool`、`tool-log`、`trap`、`reload`
-- **验收**：HTML 按钮触发 Run，日志回显 WebView
-
-#### M4-T3 Self-Healing 半自动闭环
-
-- **内容**：
-  - Trap → 写 `~/unity-wasm-fix-request.json`（已有原型扩展）
-  - CLI：`watch + 文档` 指导 Agent 改源码 → build.sh → 热重载
-- **验收**：人为制造 trap → 按文档 10 分钟内修复并 reload
-
-#### M4-T4 Agent 上下文包
-
-- **内容**：一条命令导出 `schemas/agent-context.json`（合并 editor-api + tool-registry + ABI 说明）
-- **验收**：外部 Agent 仅读该文件即可生成合法 guest 代码骨架
-
-#### M4-T5 动态 UI 注入（低优先级）
-
-- **内容**：sandbox iframe + CSP；Host 注入 HTML fragment
-- **验收**：POC 级，非生产必须
-
-### 6.4 M4 整体验收标准
-
-- [ ] WebView POC 在 sample-project 可演示
-- [ ] Self-Healing 文档流程可走通
-- [ ] Agent 上下文包被团队试用反馈
-
-### 6.5 M4 前置条件
-
-- M2 SDK 稳定（否则 Agent 生成代码频繁 break）
-- M1 工具流程成熟（否则 UI 无意义）
+- [ ] ≥1 生产复杂度示例 daily use
+- [ ] mutating 有独立 WIT interface + Undo
+- [ ] 内部 ≥3 个日常 wasm 工具
 
 ---
 
-## 7. 横切关注点（全阶段适用）
+## 7. M3.5 — 声明式 UI 平台（新增）
 
-### 7.1 文档同步规则
+### 7.1 目标
 
-每变更 Host API 必须更新：
+实现 **「TS/Web 式 UI 开发效率 + UITK 原生观感 + WASM 逻辑热更」**，不依赖 WebView 作为默认方案。
 
-1. `wit/editor-api/*.wit`
-2. `docs/host-api.md`
-3. `schemas/editor-api.schema.json`（Export 或 CI）
-4. 至少一个 example 调用路径
+### 7.2 交付物
 
-### 7.2 分支与发布
+| ID | 交付物 |
+|----|--------|
+| M35-D1 | `docs/ui-strategy.md`（定案路线 A/B/C） |
+| M35-D2 | WIT Tier **`editor_ui`** + Host 实现 |
+| M35-D3 | `UiSchemaRenderer`（`ui.json` → VisualElement 树） |
+| M35-D4 | `ToolPanelHost`：每工具可挂载独立 UI 面板 |
+| M35-D5 | UI 热更：`ui.json` / `.uss` FileWatcher |
+| M35-D6 | `sdk/typescript/ui-template` 或 `sdk/ui-schema/` |
+| M35-D7 | 示例：`asset-scanner-panel`（UI + wasm 分离） |
+| M35-D8 | （Spike）OneJS/Preactor 架构阅读笔记与是否引入评估 |
+
+### 7.3 `editor_ui` Host API（草案）
+
+| Import | 用途 |
+|--------|------|
+| `set_control_text(id, text)` | 标签/按钮文案 |
+| `set_list_items(id, bulk_ptr)` | 列表数据（FMBO） |
+| `get_toggle(id) -> bool` | 读取控件状态 |
+| `notify_ui_event(name, payload_ptr)` | UI → WASM 事件 |
+
+WASM export 扩展：`on_ui_event(name)`（可选，与 `on_menu_click` 并列）。
+
+### 7.4 工具包结构（M3.5 后）
+
+```
+my-tool/
+├── tool.json
+├── bin/tool.wasm
+├── ui/
+│   ├── ui.json          # 或 panel.uxml + panel.uss
+│   └── bindings.json    # 控件 id ↔ WASM 事件
+└── src/                 # Rust
+```
+
+### 7.5 开发工作流（目标体验）
+
+```bash
+# 终端 1：UI
+cd my-tool/ui && npm run dev    # → ui.json
+
+# 终端 2：逻辑
+cd my-tool && cargo watch ...   # → tool.wasm
+
+# Unity：Refresh 一次，之后双 watcher 自动 reload
+```
+
+### 7.6 任务分解
+
+| 任务 | 内容 |
+|------|------|
+| M35-T0 | UI 路线 Spike（2–3 天）：ui.json vs UXML vs OneJS 模式对比 |
+| M35-T1 | `editor_ui` WIT + Host |
+| M35-T2 | `UiSchemaRenderer` MVP（Button、Label、ListView、ProgressBar） |
+| M35-T3 | `ToolPanelHost` + 与 `HotReloadService` 联动 |
+| M35-T4 | UI FileWatcher + Shell 状态保留（滚动位置等） |
+| M35-T5 | asset-scanner 拆分为 ui + wasm 示例 |
+| M35-T6 | TS/UI 模板与文档 |
+
+### 7.7 验收
+
+- [ ] 修改 `ui.json` 5 秒内 Shell 刷新，**无 Domain Reload**
+- [ ] 修改 `tool.wasm` 仍独立热更（M1 能力保持）
+- [ ] 观感与现有 Editor 窗口一致（Editor 主题 USS）
+- [ ] 不引入 WebView 依赖
+
+### 7.8 风险
+
+| 风险 | 缓解 |
+|------|------|
+| Unity 2022.3 UITK Live Reload 功能弱于 Unity 6 | 自建 FileWatcher + 字符串重载 UXML |
+| ui.json 表达力不足 | 预留 UXML 路线；复杂控件渐进添加 |
+| OneJS 依赖 Editor/运行时假设 | 只借鉴架构，不直接依赖包；M35-T0 评估 |
+
+---
+
+## 8. M4 — AI 与可选增强（非核心）
+
+### 8.1 目标调整（相对原 roadmap）
+
+**原**：Web 富 UI + AI 为主。  
+**现**：**AI 上下文与半自动修复为主**；WebView **仅**面向极少数复杂工具的 POC。
+
+### 8.2 交付物
+
+| ID | 交付物 | 优先级 |
+|----|--------|--------|
+| M4-D1 | `schemas/agent-context.json` 一键导出 | 高 |
+| M4-D2 | Self-Healing 文档 + CLI（Trap JSON → rebuild 指引） | 高 |
+| M4-D3 | `docs/webview-evaluation.md` + 可选 POC | 低 |
+| M4-D4 | WebViewBridge 完整协议（若 POC 通过） | 低 |
+| M4-D5 | 动态 HTML 注入 sandbox（仅 POC） | 低 |
+
+### 8.3 验收
+
+- [ ] Agent 上下文包可被外部 Agent 生成合法 guest 骨架
+- [ ] Trap → fix-request → rebuild → reload 流程文档化可走通
+- [ ] WebView POC：**可选**，不作为平台标配
+
+### 8.4 前置条件
+
+- M2 SDK 稳定
+- M3.5 UI 平台可用（避免 AI 生成 UI 时无稳定契约）
+
+---
+
+## 9. 横切关注点
+
+### 9.1 文档同步
+
+Host / UI / WIT 变更须同步：`wit/`、`docs/host-api.md`、`schemas/`、至少一个 example。
+
+### 9.2 分支策略
 
 | 分支 | 用途 |
 |------|------|
-| `main` | 稳定 ABI；examples 可编译 |
-| `feature/editor-api-2` | breaking ABI 实验 |
+| `main` | 稳定 ABI + examples 可编译 |
+| `feature/editor-api-2` | breaking ABI |
+| `feature/editor-ui-1` | M3.5 UI 平台 |
 
-版本建议：`com.fumo.editor-wasm` 0.x 跟随里程碑；ABI major 独立于 package version。
+### 9.3 测试策略
 
-### 7.3 测试策略
+| 层级 | M1 | M2 | M3 | M3.5 | M4 |
+|------|----|----|-----|------|-----|
+| wasm 本地 build 脚本 | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 契约 instantiate（CI，M2+ 可选） | | ✓ | ✓ | ✓ | ✓ |
+| ui.json schema 校验 | | | | ✓ | |
+| sample-project 人工 | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-| 层级 | M1 | M2 | M3 |
-|------|----|----|-----|
-| wasm 构建 CI | ✓ | ✓ | ✓ |
-| 契约 instantiate | | ✓ | ✓ |
-| Unity EditMode 测试 | 可选 | 可选 | 建议 Host 单元测试 |
-| 人工 sample-project | ✓ | ✓ | ✓ |
+### 9.4 平台矩阵
 
-### 7.4 平台矩阵
-
-每里程碑发布前在 **Linux / Windows / macOS** Editor 各 smoke test 一次（Wasmtime native 插件）。
+每里程碑：Linux / Windows / macOS Editor smoke test。
 
 ---
 
-## 8. 后续 Plan 编写指引
-
-为 M1～M4 分别创建 Plan 时，建议结构：
+## 10. 后续 Plan 编写指引
 
 ```markdown
 # Mx — 标题
-
 ## 范围（In / Out）
-## 依赖（前置里程碑、外部工具）
-## 任务列表（引用本文 Mx-Tn，可再拆子任务）
-## 文件级变更预估
-## 验收清单（复制 Mx 整体验收 + 增量）
-## 风险与回滚
-## 建议 PR 拆分（1 PR = 1 可合并竖切）
+## 依赖
+## 任务（引用 Mx-Tn）
+## 文件级变更
+## 验收清单
+## PR 竖切顺序
 ```
 
-**推荐 PR 竖切顺序（M1 示例）**：
-
-1. M1-T1 动态入口
-2. M1-T2 asset-scanner
-3. M1-T3 Rust 模板
-4. M1-T4 Tool Shell
-5. M1-T5 CI + M1-T6 文档
+**M1 PR 顺序**（已定）：T1 → T2 → T3 → T4 → T5  
+**M3.5 PR 顺序**（建议）：T0 Spike → T1 editor_ui → T2 Renderer → T3 PanelHost → T4 Watch → T5 示例
 
 ---
 
-## 9. 成功指标（项目级）
+## 11. 成功指标（项目级）
 
 | 时间点 | 指标 |
 |--------|------|
-| M1 完成 | ≥3 个 wasm 工具；零 C# 改动能加工具 |
-| M2 完成 | WIT/Host/Rust 零漂移（CI enforce） |
-| M3 完成 | ≥1 生产工具 daily use；mutating 有 Undo |
-| M4 完成 | WebView POC + Agent 上下文包可用 |
+| M1 | ≥3 wasm 工具；零 C# 加工具 |
+| M2 | WIT/Host/Rust CI enforce |
+| M3 | ≥1 生产工具 daily use |
+| M3.5 | UI/逻辑 **双热更**；无 WebView 依赖 |
+| M4 | Agent 上下文包 + Self-Healing 流程可用 |
 
 ---
 
-## 10. 决策记录（ADR 占位）
+## 12. 决策记录（ADR）
 
 | 日期 | 决策 | 理由 |
 |------|------|------|
-| MVP | Wasmtime .NET Editor-only | 与 scope 一致，免 native 自研 |
-| MVP | UIElements Shell 先于 WebView | 降依赖 |
-| 待定 M2 | Host 生成 vs 契约测试 | Plan M2 时 spike 后填入 |
-| 待定 M4 | WebView 产品选型 | Plan M4-T1 后填入 |
+| MVP | Wasmtime .NET Editor-only | scope 一致 |
+| MVP | UIElements Shell 先于 WebView | 降依赖、原生观感 |
+| 2026-06 | **WebView 非默认 UI** | 过重；OneJS 式 UITK 桥更合适 |
+| 2026-06 | **双热更架构** | wasm 逻辑 + 声明式 UI 资产 |
+| 2026-06 | **不采用 TS→C# EditorWindow** | Domain Reload 丢热更 |
+| 2026-06 | 新增 **M3.5 声明式 UI 平台** | 承接 Web 式 UI 需求 |
+| 2026-06 | **M1 不做 CI** | 团队不需要；wasm 本地 build + 预编译提交 |
+| 待定 M2 | Host 生成 vs 契约测试 | M2 Spike |
+| 待定 M3.5 | ui.json vs UXML vs OneJS 式 | M35-T0 Spike |
 
 ---
 
-## 附录 A：Host API 演进路线图
+## 13. 待确认问题（Plan 前需对齐）
 
-| Tier | 接口 | M1 | M2 | M3 |
-|------|------|----|----|-----|
-| 0 core | log, progress, time | 已有 | 稳定 | 稳定 |
-| 1 selection | handles, paths | 已有 | 稳定 | 稳定 |
-| 2 assets | find, load text, bulk | 已有 | 契约测试 | 分帧优化 |
-| 3 scene | path, serialized read | | 新增 | 稳定 |
-| 4 mutating | set property, save | | | 新增 |
+1. **M3.5 UI 路线**：团队更熟悉 TS/React 还是愿直接用 `ui.json`？（影响 M35-T0 结论）
+2. **OneJS 是否可复用**：仅借鉴架构 vs 引入依赖（License、2022.3 兼容性需评估）
+3. **工具 UI 放置路径**：仅 `examples/*/ui/` 还是支持 `Assets/Editor/Tools/*/ui/`（建议两者皆支持）
+4. **M2 component model**：是否在 M2 即切换 component wasm，还是 M2 末再定（影响 wit-bindgen 工具链）
 
-## 附录 B：示例工具路线图
+---
+
+## 附录 A：Host API 演进
+
+| Tier | 接口 | MVP | M1 | M2 | M3 | M3.5 |
+|------|------|-----|----|----|-----|------|
+| 0 core | log, progress, time | ✓ | | | | |
+| 1 selection | handles, paths | ✓ | | | | |
+| 2 assets | find, load, bulk | ✓ | 验证 | 契约 | 分帧 | |
+| 3 scene | path, serialized read | | | ✓ | | |
+| 4 mutating | set property, save | | | | ✓ | |
+| **5 ui** | set_text, list, events | | | | | **✓** |
+
+## 附录 B：示例工具演进
 
 | 工具 | 里程碑 | 验证点 |
 |------|--------|--------|
@@ -474,8 +455,19 @@ Web 工具 UI、Trap 驱动半自动修复、Agent 一体化 Schema；**不**在
 | asset-scanner | M1 | Tier 2 + progress |
 | prefab-inspector-lite | M2 | Tier 3 |
 | prefab-checker / csv-export | M3 | 生产复杂度 |
-| web-panel-demo | M4 | WebView + wasm |
+| **asset-scanner-panel** | **M3.5** | **UI+wasm 双热更** |
+| web-panel-demo | M4（可选） | WebView POC |
+
+## 附录 C：与 xLua / godot-wasm 对照
+
+| 能力 | xLua | godot-wasm | unity-wasm 目标 |
+|------|------|------------|-----------------|
+| 沙箱 | 弱 | 强 | 强（WASM） |
+| 热更逻辑 | Lua 脚本 | wasm 模块 | wasm |
+| 热更 UI | — | — | **ui.json/UXML（M3.5）** |
+| API 暴露 | 反射+白名单 | import_map | WIT + Host |
+| 多语言 | Lua | 任意→wasm | Rust/AS |
 
 ---
 
-*本文档随里程碑完成而更新；各 Mx 详细 Plan 完成后，在本节「决策记录」与对应 Mx 章节追加链接。*
+*各 Mx Plan 完成后，在 §12 ADR 追加链接与定案记录。*

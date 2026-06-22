@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Fumo.EditorWasm.Generator;
 using UnityEditor;
 using UnityEngine;
@@ -12,6 +11,8 @@ namespace Fumo.EditorWasm
     {
         static HotReloadService _hotReload;
         static readonly List<ToolManifest> _tools = new();
+
+        public static event Action ToolsChanged;
 
         public static HotReloadService HotReload => _hotReload;
         public static IReadOnlyList<ToolManifest> Tools => _tools;
@@ -31,13 +32,13 @@ namespace Fumo.EditorWasm
             _hotReload = new HotReloadService();
             _hotReload.ToolReloaded += manifest =>
             {
-                ToolWindowShell.Instance.SetStatus($"Reloaded {manifest.name}");
-                ToolWindowShell.Instance.AppendLog($"Hot reload: {manifest.id}");
+                ToolWindowShell.NotifyStatus($"Reloaded {manifest.name}");
+                ToolWindowShell.NotifyLog($"Hot reload: {manifest.id}");
             };
             _hotReload.ToolTrapped += (manifest, report) =>
             {
-                ToolWindowShell.Instance.ShowTrap(report);
-                ToolWindowShell.Instance.SetStatus($"Trap in {manifest.name}");
+                ToolWindowShell.NotifyTrap(report);
+                ToolWindowShell.NotifyStatus($"Trap in {manifest.name}");
             };
 
             RefreshTools();
@@ -51,6 +52,7 @@ namespace Fumo.EditorWasm
             _tools.AddRange(ToolDiscoveryService.DiscoverAll());
             _hotReload?.RegisterAll(_tools);
             Debug.Log($"[WasmEditor] Discovered {_tools.Count} tool(s).");
+            ToolsChanged?.Invoke();
         }
 
         public static void InvokeTool(string toolId)
@@ -62,7 +64,7 @@ namespace Fumo.EditorWasm
                 return;
             }
 
-            ToolWindowShell.Instance.SetStatus($"Running {manifest.name}");
+            ToolWindowShell.NotifyStatus($"Running {manifest.name}");
             _hotReload.InvokeMenu(manifest);
         }
 
@@ -93,35 +95,5 @@ namespace Fumo.EditorWasm
 
         [MenuItem("Tools/Wasm Editor/Generate Host Bindings", priority = 21)]
         public static void GenerateBindings() => HostBindingGenerator.Generate();
-    }
-
-    /// <summary>
-    /// Dynamically registers menu items for discovered tools.
-    /// </summary>
-    [InitializeOnLoad]
-    public static class ToolMenuRegistry
-    {
-        static readonly Dictionary<string, ToolManifest> _registered = new();
-
-        static ToolMenuRegistry()
-        {
-            EditorApplication.delayCall += RebuildMenus;
-        }
-
-        public static void RebuildMenus()
-        {
-            _registered.Clear();
-            foreach (var tool in WasmEditorRuntime.Tools)
-            {
-                if (string.IsNullOrEmpty(tool.menu))
-                    continue;
-
-                _registered[tool.menu] = tool;
-                // Static MenuItem attributes cannot be added at runtime; use default root menu.
-            }
-        }
-
-        [MenuItem("Tools/Wasm Editor/Run/Selection Logger", priority = 100)]
-        public static void RunSelectionLogger() => WasmEditorRuntime.InvokeTool("com.fumo.selection-logger");
     }
 }

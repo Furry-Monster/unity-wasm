@@ -1,0 +1,15 @@
+{
+  "id": "com.fumo.hello-tool",
+  "name": "Hello Tool",
+  "version": "0.1.0",
+  "abi": "editor-api/1",
+  "entry": "bin/tool.wasm",
+  "menu": "Tools/Wasm Editor/Run Tool/Hello Tool",
+  "shortcut": null,
+  "exports": {
+    "on_init": "on_init",
+    "on_shutdown": "on_shutdown",
+    "on_menu_click": "on_menu_click",
+    "on_selection_changed": null
+  }
+}
