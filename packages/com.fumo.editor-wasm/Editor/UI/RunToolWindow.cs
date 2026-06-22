@@ -15,8 +15,9 @@ namespace Fumo.EditorWasm
         const float ChromeHeight = 16f;
 
         VisualElement _list;
+        VisualElement _root;
 
-        public static void ShowWindow()
+        public static void ShowWindow(Vector2 activatorScreenPosition)
         {
             WasmEditorRuntime.EnsureReady();
 
@@ -26,28 +27,44 @@ namespace Fumo.EditorWasm
 
             var toolCount = Mathf.Max(WasmEditorRuntime.Tools.Count, 1);
             var height = toolCount * RowHeight + ChromeHeight;
-            window.position = CenterOnMainWindow(Width, height);
+            window.position = PlaceNearScreenPoint(activatorScreenPosition, Width, height);
             window.ShowPopup();
+            window.Focus();
         }
 
         void CreateGUI()
         {
-            var root = rootVisualElement;
-            root.style.paddingTop = 6;
-            root.style.paddingBottom = 6;
-            root.style.paddingLeft = 8;
-            root.style.paddingRight = 8;
+            _root = rootVisualElement;
+            _root.style.paddingTop = 6;
+            _root.style.paddingBottom = 6;
+            _root.style.paddingLeft = 8;
+            _root.style.paddingRight = 8;
+            _root.focusable = true;
+            _root.RegisterCallback<FocusOutEvent>(OnRootFocusOut);
 
             _list = new VisualElement();
-            root.Add(_list);
+            _root.Add(_list);
 
             WasmEditorRuntime.ToolsChanged += RebuildList;
             RebuildList();
+            _root.Focus();
         }
 
         void OnDestroy()
         {
+            if (_root != null)
+                _root.UnregisterCallback<FocusOutEvent>(OnRootFocusOut);
+
             WasmEditorRuntime.ToolsChanged -= RebuildList;
+        }
+
+        void OnRootFocusOut(FocusOutEvent evt)
+        {
+            var newFocus = evt.relatedTarget as VisualElement;
+            if (newFocus != null && _root.Contains(newFocus))
+                return;
+
+            Close();
         }
 
         void RebuildList()
@@ -79,14 +96,12 @@ namespace Fumo.EditorWasm
             }
         }
 
-        static Rect CenterOnMainWindow(float width, float height)
+        static Rect PlaceNearScreenPoint(Vector2 screenPoint, float width, float height)
         {
             var main = EditorGUIUtility.GetMainWindowPosition();
-            return new Rect(
-                main.x + (main.width - width) * 0.5f,
-                main.y + 80f,
-                width,
-                height);
+            var x = Mathf.Clamp(screenPoint.x, main.x, main.xMax - width);
+            var y = Mathf.Clamp(screenPoint.y, main.y, main.yMax - height);
+            return new Rect(x, y, width, height);
         }
     }
 }
