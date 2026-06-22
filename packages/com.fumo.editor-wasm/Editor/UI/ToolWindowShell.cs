@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -11,6 +12,9 @@ namespace Fumo.EditorWasm
     /// </summary>
     public sealed class ToolWindowShell : EditorWindow
     {
+        const int MaxLogLines = 500;
+        const int MaxPendingLogLines = 100;
+
         static ToolWindowShell _instance;
         static string _pendingStatus;
         static string _pendingTrapJson;
@@ -24,11 +28,13 @@ namespace Fumo.EditorWasm
         ProgressBar _progress;
         string _lastTrapJson = string.Empty;
 
+        Action<ToolManifest> _onToolReloadedHandler;
+
         [MenuItem("Window/Wasm Editor/Tool Shell")]
         public static void ShowWindow()
         {
             _instance = GetWindow<ToolWindowShell>("Wasm Tool Shell");
-            _instance.minSize = new Vector2(480, 360);
+            _instance.minSize = new Vector2(520, 360);
         }
 
         public static ToolWindowShell Instance => _instance;
@@ -36,25 +42,23 @@ namespace Fumo.EditorWasm
         public static void NotifyStatus(string text)
         {
             _pendingStatus = text;
-            if (_instance != null)
-                _instance.ApplyStatus(text);
+            _instance?.ApplyStatus(text);
         }
 
         public static void NotifyLog(string line)
         {
             _pendingLogLines.Add(line);
-            if (_instance != null)
-                _instance.ApplyLog(line);
+            while (_pendingLogLines.Count > MaxPendingLogLines)
+                _pendingLogLines.RemoveAt(0);
+
+            _instance?.ApplyLog(line);
         }
 
         public static void NotifyTrap(TrapReport report)
         {
             _pendingTrapJson = report?.ToJson() ?? string.Empty;
-            if (_instance != null)
-                _instance.ApplyTrap(_pendingTrapJson, report?.trapMessage);
+            _instance?.ApplyTrap(_pendingTrapJson, report?.trapMessage);
         }
-
-        Action<ToolManifest> _onToolReloadedHandler;
 
         void CreateGUI()
         {
@@ -81,8 +85,7 @@ namespace Fumo.EditorWasm
 
             var trapHeaderRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 6 } };
             trapHeaderRow.Add(new Label("Last Trap") { style = { unityFontStyleAndWeight = FontStyle.Bold, flexGrow = 1 } });
-            var copyBtn = new Button(CopyTrapJson) { text = "Copy JSON" };
-            trapHeaderRow.Add(copyBtn);
+            trapHeaderRow.Add(new Button(CopyTrapJson) { text = "Copy JSON" });
 
             root.Add(_status);
             root.Add(_progress);
@@ -133,32 +136,57 @@ namespace Fumo.EditorWasm
                 return;
             }
 
-            foreach (var tool in WasmEditorRuntime.Tools)
+            foreach (var tool in WasmEditorRuntime.Tools.OrderBy(t => t.name))
+                _toolsList.Add(BuildToolRow(tool, hotReload));
+        }
+
+        static VisualElement BuildToolRow(ToolManifest tool, HotReloadService hotReload)
+        {
+            var card = new VisualElement
             {
-                var row = new VisualElement
+                style =
                 {
-                    style =
-                    {
-                        flexDirection = FlexDirection.Row,
-                        alignItems = Align.Center,
-                        marginBottom = 4
-                    }
-                };
+                    marginBottom = 6,
+                    paddingBottom = 4,
+                    borderBottomWidth = 1,
+                    borderBottomColor = new Color(0.3f, 0.3f, 0.3f, 0.5f)
+                }
+            };
 
-                var nameLabel = new Label(tool.name) { style = { flexGrow = 1, minWidth = 120 } };
-                var runBtn = new Button(() => WasmEditorRuntime.InvokeTool(tool.id)) { text = "Run" };
-                runBtn.style.width = 48;
+            var header = new VisualElement
+            {
+                style = { flexDirection = FlexDirection.Row, alignItems = Align.Center }
+            };
 
-                var reloadLabel = new Label(FormatReloadTime(hotReload?.GetLastReloadUtc(tool.id)))
-                {
-                    style = { width = 100, color = Color.gray, fontSize = 10, unityTextAlign = TextAnchor.MiddleRight }
-                };
+            var nameLabel = new Label(tool.name) { style = { flexGrow = 1, minWidth = 120, unityFontStyleAndWeight = FontStyle.Bold } };
+            var runBtn = new Button(() => WasmEditorRuntime.InvokeTool(tool.id)) { text = "Run" };
+            runBtn.style.width = 48;
 
-                row.Add(nameLabel);
-                row.Add(runBtn);
-                row.Add(reloadLabel);
-                _toolsList.Add(row);
-            }
+            var reloadLabel = new Label(FormatReloadTime(hotReload?.GetLastReloadUtc(tool.id)))
+            {
+                style = { width = 72, color = Color.gray, fontSize = 10, unityTextAlign = TextAnchor.MiddleRight }
+            };
+
+            header.Add(nameLabel);
+            header.Add(runBtn);
+            header.Add(reloadLabel);
+
+            var meta = new Label(FormatToolMeta(tool))
+            {
+                style = { color = Color.gray, fontSize = 10, whiteSpace = WhiteSpace.Normal, marginTop = 2 }
+            };
+            meta.tooltip = tool.WasmPath;
+
+            card.Add(header);
+            card.Add(meta);
+            return card;
+        }
+
+        static string FormatToolMeta(ToolManifest tool)
+        {
+            var abi = string.IsNullOrEmpty(tool.abi) ? "?" : tool.abi;
+            var entry = string.IsNullOrEmpty(tool.entry) ? "?" : tool.entry;
+            return $"{tool.id} · {abi} · {entry}";
         }
 
         static string FormatReloadTime(DateTime? utc)
@@ -184,12 +212,16 @@ namespace Fumo.EditorWasm
             ApplyLog("Trap JSON copied to clipboard.");
         }
 
-        void ApplyStatus(string text) => _status.text = text;
+        void ApplyStatus(string text)
+        {
+            if (_status != null)
+                _status.text = text;
+        }
 
         void ApplyLog(string line)
         {
             _logLines.Add($"[{DateTime.Now:HH:mm:ss}] {line}");
-            if (_logLines.Count > 500)
+            while (_logLines.Count > MaxLogLines)
                 _logLines.RemoveAt(0);
             RepaintLogs();
         }
@@ -197,7 +229,8 @@ namespace Fumo.EditorWasm
         void ApplyTrap(string json, string shortMessage)
         {
             _lastTrapJson = json ?? string.Empty;
-            _trap.text = _lastTrapJson;
+            if (_trap != null)
+                _trap.text = _lastTrapJson;
             if (!string.IsNullOrEmpty(shortMessage))
                 ApplyLog($"TRAP: {shortMessage}");
         }

@@ -38,17 +38,42 @@ namespace Fumo.EditorWasm
                 return;
 
             _manifests[manifest.id] = manifest;
-            var isNewHost = !_hosts.ContainsKey(manifest.id);
-            EnsureHost(manifest);
-            if (isNewHost)
+
+            if (_hosts.TryGetValue(manifest.id, out var existing))
+            {
+                if (!string.Equals(existing.Manifest?.WasmPath, manifest.WasmPath, StringComparison.Ordinal))
+                {
+                    existing.LoadFromManifest(manifest);
+                    RecordReload(manifest.id);
+                }
+            }
+            else
+            {
+                EnsureHost(manifest);
                 RecordReload(manifest.id);
-            Watch(manifest);
+            }
+
+            EnsureWatching(manifest);
         }
 
         public void RegisterAll(IEnumerable<ToolManifest> manifests)
         {
+            var seen = new HashSet<string>();
             foreach (var manifest in manifests)
+            {
+                seen.Add(manifest.id);
                 Register(manifest);
+            }
+
+            var removed = new List<string>();
+            foreach (var id in _manifests.Keys)
+            {
+                if (!seen.Contains(id))
+                    removed.Add(id);
+            }
+
+            foreach (var id in removed)
+                Unregister(id);
         }
 
         public WasmEditorHost GetHost(string toolId)
@@ -121,7 +146,7 @@ namespace Fumo.EditorWasm
             return host;
         }
 
-        void Watch(ToolManifest manifest)
+        void EnsureWatching(ToolManifest manifest)
         {
             var wasmPath = manifest.WasmPath;
             var dir = Path.GetDirectoryName(wasmPath);
@@ -129,8 +154,14 @@ namespace Fumo.EditorWasm
             if (string.IsNullOrEmpty(dir) || string.IsNullOrEmpty(file))
                 return;
 
-            if (_watchers.ContainsKey(manifest.id))
-                return;
+            if (_watchers.TryGetValue(manifest.id, out var existing))
+            {
+                if (string.Equals(existing.Path, dir, StringComparison.Ordinal) &&
+                    string.Equals(existing.Filter, file, StringComparison.Ordinal))
+                    return;
+
+                StopWatching(manifest.id);
+            }
 
             var watcher = new FileSystemWatcher(dir, file)
             {
@@ -146,18 +177,38 @@ namespace Fumo.EditorWasm
             _watchers[manifest.id] = watcher;
         }
 
+        void StopWatching(string toolId)
+        {
+            if (!_watchers.TryGetValue(toolId, out var watcher))
+                return;
+
+            watcher.EnableRaisingEvents = false;
+            watcher.Dispose();
+            _watchers.Remove(toolId);
+        }
+
+        void Unregister(string toolId)
+        {
+            StopWatching(toolId);
+
+            if (_hosts.TryGetValue(toolId, out var host))
+            {
+                host.Dispose();
+                _hosts.Remove(toolId);
+            }
+
+            _manifests.Remove(toolId);
+            _pendingReload.Remove(toolId);
+            _lastReloadUtc.Remove(toolId);
+        }
+
         public void Dispose()
         {
             if (_disposed)
                 return;
 
-            foreach (var watcher in _watchers.Values)
-            {
-                watcher.EnableRaisingEvents = false;
-                watcher.Dispose();
-            }
-
-            _watchers.Clear();
+            foreach (var toolId in new List<string>(_watchers.Keys))
+                StopWatching(toolId);
 
             foreach (var host in _hosts.Values)
                 host.Dispose();

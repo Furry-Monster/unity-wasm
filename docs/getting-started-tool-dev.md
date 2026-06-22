@@ -49,8 +49,10 @@ chmod +x build.sh
 5. In Unity:
 
    - **Tools → Wasm Editor → Refresh Tools**
-   - **Tools → Wasm Editor → Run Tool... → My Hello**
-   - Optional: **Tools → Wasm Editor → Open Tool Shell** for logs
+   - **Tools → Wasm Editor → Run Tool...** — pick your tool from the **context menu** (popup list, not a fixed Unity submenu)
+   - Optional: **Tools → Wasm Editor → Open Tool Shell** for logs, manifest metadata, and trap JSON
+
+   Running a tool does **not** auto-open Tool Shell (logs still appear in the Console).
 
 You should see `Hello Tool: running` (or your customized message) in the Console / Tool Shell.
 
@@ -67,7 +69,7 @@ Fields map to [ToolManifest.cs](../packages/com.fumo.editor-wasm/Editor/ToolMani
 | `version` | no | Semver string (default `1.0.0`) |
 | `abi` | yes | Host API version, currently `editor-api/1` |
 | `entry` | yes | Path to wasm relative to tool root, usually `bin/tool.wasm` |
-| `menu` | no | Documentation / registry only in M1; Run uses dynamic menu |
+| `menu` | no | **Not used for Run in M1.** Documentation + `Export Tool Registry` only; launch uses dynamic **Run Tool...** menu |
 | `shortcut` | no | Reserved for future shortcut support |
 | `exports.on_init` | yes | Wasm export called on load |
 | `exports.on_shutdown` | no | Called on unload |
@@ -215,6 +217,8 @@ Tool authors normally place tools in one of the default paths above.
 | Selection Logger | `examples/selection-logger` | Tier 1 selection API |
 | Asset Scanner | `examples/asset-scanner` | Tier 2 assets + progress bar |
 | Hello Tool (template) | `sdk/rust/template` | Minimal starting point |
+
+> **Performance note (M1):** Asset Scanner walks assets on the Editor main thread and may freeze briefly on large projects. This is expected for M1; batched scanning is planned for M3 ([roadmap](roadmap.md)).
 
 ---
 

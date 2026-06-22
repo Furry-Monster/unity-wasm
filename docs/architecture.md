@@ -8,7 +8,7 @@
 | `EditorHostBridge` | WIT-aligned host import implementations |
 | `WasmEditorHost` | Wasmtime load / call / trap / fuel |
 | `HotReloadService` | FileSystemWatcher + debounced reload |
-| `ToolWindowShell` | UIElements log and trap panel |
+| `ToolWindowShell` | UIElements launcher, logs, trap panel, manifest metadata |
 
 ## Data Flow
 

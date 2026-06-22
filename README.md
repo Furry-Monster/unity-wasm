@@ -33,7 +33,7 @@ cd examples/asset-scanner && ./build.sh
 ### 3. Run in Unity
 
 1. **Tools → Wasm Editor → Refresh Tools**
-2. **Tools → Wasm Editor → Run Tool...** — pick Selection Logger or Asset Scanner
+2. **Tools → Wasm Editor → Run Tool...** — pick a tool from the context menu
 3. Optional: **Tools → Wasm Editor → Open Tool Shell** for logs, trap JSON, and reload times
 
 ### 4. Hot reload
@@ -97,7 +97,7 @@ Place tools under `Assets/Editor/Tools/<your-tool>/tool.json` + `bin/tool.wasm`.
 | Menu | Action |
 |------|--------|
 | Tools → Wasm Editor → Refresh Tools | Rescan tool.json manifests |
-| Tools → Wasm Editor → Run Tool... | Dynamic menu of discovered tools |
+| Tools → Wasm Editor → Run Tool... | Context menu listing all discovered tools (dynamic) |
 | Tools → Wasm Editor → Open Tool Shell | Launcher, logs, trap panel |
 | Tools → Wasm Editor → Export API Schema | Write `schemas/editor-api.schema.json` |
 | Tools → Wasm Editor → Generate Host Bindings | Generate API registry |

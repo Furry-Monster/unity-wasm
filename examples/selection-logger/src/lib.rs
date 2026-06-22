@@ -12,7 +12,6 @@ fn panic(_info: &PanicInfo) -> ! {
 #[link(wasm_import_module = "editor_core")]
 extern "C" {
     fn log(level: i32, ptr: i32, len: i32);
-    fn log_error(ptr: i32, len: i32);
     fn get_editor_time() -> f64;
 }
 
@@ -27,14 +26,6 @@ fn log_str(level: i32, text: &str) {
     unsafe {
         log(level, text.as_ptr() as i32, text.len() as i32);
     }
-}
-
-fn write_cstr(out: &mut [u8], text: &str) -> i32 {
-    let bytes = text.as_bytes();
-    let len = bytes.len().min(out.len().saturating_sub(1));
-    out[..len].copy_from_slice(&bytes[..len]);
-    out[len] = 0;
-    len as i32
 }
 
 #[no_mangle]

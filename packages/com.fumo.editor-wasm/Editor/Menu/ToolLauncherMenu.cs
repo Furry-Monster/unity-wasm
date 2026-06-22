@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEditor;
 
 namespace Fumo.EditorWasm
@@ -8,8 +9,11 @@ namespace Fumo.EditorWasm
         public static void ShowRunToolMenu()
         {
             var menu = new GenericMenu();
-            foreach (var tool in WasmEditorRuntime.Tools)
-                menu.AddItem(new GUIContent(tool.name), false, () => WasmEditorRuntime.InvokeTool(tool.id));
+            foreach (var tool in WasmEditorRuntime.Tools.OrderBy(t => t.name))
+            {
+                var toolId = tool.id;
+                menu.AddItem(new GUIContent(tool.name), false, () => WasmEditorRuntime.InvokeTool(toolId));
+            }
 
             if (WasmEditorRuntime.Tools.Count == 0)
                 menu.AddDisabledItem(new GUIContent("(No tools — Refresh Tools)"));
