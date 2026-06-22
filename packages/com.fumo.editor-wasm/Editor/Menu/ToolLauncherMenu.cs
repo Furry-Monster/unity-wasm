@@ -1,5 +1,6 @@
 using System.Linq;
 using UnityEditor;
+using UnityEngine;
 
 namespace Fumo.EditorWasm
 {
@@ -18,7 +19,7 @@ namespace Fumo.EditorWasm
             if (WasmEditorRuntime.Tools.Count == 0)
                 menu.AddDisabledItem(new GUIContent("(No tools — Refresh Tools)"));
 
-            menu.ShowAsContext();
+            menu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
         }
     }
 }
