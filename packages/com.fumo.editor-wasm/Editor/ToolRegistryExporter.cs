@@ -32,12 +32,14 @@ namespace Fumo.EditorWasm
 
         public static void Export()
         {
+            WasmEditorRuntime.EnsureReady();
+
             var doc = new RegistryDocument
             {
                 generated_at_utc = DateTime.UtcNow.ToString("o")
             };
 
-            foreach (var tool in ToolDiscoveryService.DiscoverAll())
+            foreach (var tool in WasmEditorRuntime.Tools)
             {
                 doc.tools.Add(new RegistryEntry
                 {

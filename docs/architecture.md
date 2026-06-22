@@ -8,16 +8,19 @@
 | `EditorHostBridge` | WIT-aligned host import implementations |
 | `WasmEditorHost` | Wasmtime load / call / trap / fuel |
 | `HotReloadService` | FileSystemWatcher + debounced reload |
+| `WasmEditorRuntime` | Discovery orchestration, menu/shell invoke, lifecycle |
 | `ToolWindowShell` | UIElements launcher, logs, trap panel, manifest metadata |
 
 ## Data Flow
 
 ```
-tool.json → ToolDiscoveryService → HotReloadService → WasmEditorHost
-                                                         ↓
-                                              Linker.DefineFunction imports
-                                                         ↓
-                                              EditorHostBridge → UnityEditor APIs
+tool.json → ToolDiscoveryService → WasmEditorRuntime → HotReloadService → WasmEditorHost
+                                                                          ↓
+                                                               Linker.DefineFunction imports
+                                                                          ↓
+                                                               EditorHostBridge → UnityEditor APIs
+                                                                          ↓
+                                                               ToolWindowShell (status / log / trap / progress)
 ```
 
 ## Safety Boundaries

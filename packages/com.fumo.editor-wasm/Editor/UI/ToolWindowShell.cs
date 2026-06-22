@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -18,6 +17,9 @@ namespace Fumo.EditorWasm
         static ToolWindowShell _instance;
         static string _pendingStatus;
         static string _pendingTrapJson;
+        static string _pendingProgressTitle;
+        static string _pendingProgressInfo;
+        static float? _pendingProgressValue;
         static readonly List<string> _pendingLogLines = new();
 
         readonly List<string> _logLines = new();
@@ -27,17 +29,15 @@ namespace Fumo.EditorWasm
         Label _trap;
         ProgressBar _progress;
         string _lastTrapJson = string.Empty;
+        bool _hotReloadSubscribed;
 
         Action<ToolManifest> _onToolReloadedHandler;
 
-        [MenuItem("Window/Wasm Editor/Tool Shell")]
         public static void ShowWindow()
         {
             _instance = GetWindow<ToolWindowShell>("Wasm Tool Shell");
             _instance.minSize = new Vector2(520, 360);
         }
-
-        public static ToolWindowShell Instance => _instance;
 
         public static void NotifyStatus(string text)
         {
@@ -52,6 +52,22 @@ namespace Fumo.EditorWasm
                 _pendingLogLines.RemoveAt(0);
 
             _instance?.ApplyLog(line);
+        }
+
+        public static void NotifyProgress(string title, string info, float progress)
+        {
+            _pendingProgressTitle = title;
+            _pendingProgressInfo = info;
+            _pendingProgressValue = progress;
+            _instance?.ApplyProgress(title, info, progress);
+        }
+
+        public static void NotifyClearProgress()
+        {
+            _pendingProgressTitle = null;
+            _pendingProgressInfo = null;
+            _pendingProgressValue = null;
+            _instance?.ApplyClearProgress();
         }
 
         public static void NotifyTrap(TrapReport report)
@@ -98,9 +114,9 @@ namespace Fumo.EditorWasm
             root.Add(_trap);
 
             WasmEditorRuntime.ToolsChanged += RebuildToolsList;
+            WasmEditorRuntime.Initialized += SubscribeHotReload;
             _onToolReloadedHandler = _ => RebuildToolsList();
-            if (WasmEditorRuntime.HotReload != null)
-                WasmEditorRuntime.HotReload.ToolReloaded += _onToolReloadedHandler;
+            SubscribeHotReload();
 
             if (!string.IsNullOrEmpty(_pendingStatus))
                 ApplyStatus(_pendingStatus);
@@ -109,6 +125,10 @@ namespace Fumo.EditorWasm
             _pendingLogLines.Clear();
             if (!string.IsNullOrEmpty(_pendingTrapJson))
                 ApplyTrap(_pendingTrapJson, null);
+            if (_pendingProgressValue.HasValue)
+                ApplyProgress(_pendingProgressTitle, _pendingProgressInfo, _pendingProgressValue.Value);
+            else
+                ApplyClearProgress();
 
             RebuildToolsList();
         }
@@ -116,10 +136,35 @@ namespace Fumo.EditorWasm
         void OnDestroy()
         {
             WasmEditorRuntime.ToolsChanged -= RebuildToolsList;
-            if (_onToolReloadedHandler != null && WasmEditorRuntime.HotReload != null)
-                WasmEditorRuntime.HotReload.ToolReloaded -= _onToolReloadedHandler;
+            WasmEditorRuntime.Initialized -= SubscribeHotReload;
+            UnsubscribeHotReload();
             if (_instance == this)
                 _instance = null;
+        }
+
+        void SubscribeHotReload()
+        {
+            if (_hotReloadSubscribed)
+                return;
+
+            var hotReload = WasmEditorRuntime.HotReload;
+            if (hotReload == null)
+                return;
+
+            hotReload.ToolReloaded += _onToolReloadedHandler;
+            _hotReloadSubscribed = true;
+        }
+
+        void UnsubscribeHotReload()
+        {
+            if (!_hotReloadSubscribed)
+                return;
+
+            var hotReload = WasmEditorRuntime.HotReload;
+            if (hotReload != null && _onToolReloadedHandler != null)
+                hotReload.ToolReloaded -= _onToolReloadedHandler;
+
+            _hotReloadSubscribed = false;
         }
 
         void RebuildToolsList()
@@ -136,7 +181,7 @@ namespace Fumo.EditorWasm
                 return;
             }
 
-            foreach (var tool in WasmEditorRuntime.Tools.OrderBy(t => t.name))
+            foreach (var tool in WasmEditorRuntime.OrderedTools)
                 _toolsList.Add(BuildToolRow(tool, hotReload));
         }
 
@@ -162,10 +207,11 @@ namespace Fumo.EditorWasm
             var runBtn = new Button(() => WasmEditorRuntime.InvokeTool(tool.id)) { text = "Run" };
             runBtn.style.width = 48;
 
-            var reloadLabel = new Label(FormatReloadTime(hotReload?.GetLastReloadUtc(tool.id)))
+            var reloadLabel = new Label(FormatHotReloadTime(hotReload?.GetLastHotReloadUtc(tool.id)))
             {
                 style = { width = 72, color = Color.gray, fontSize = 10, unityTextAlign = TextAnchor.MiddleRight }
             };
+            reloadLabel.tooltip = "Last hot reload";
 
             header.Add(nameLabel);
             header.Add(runBtn);
@@ -189,7 +235,7 @@ namespace Fumo.EditorWasm
             return $"{tool.id} · {abi} · {entry}";
         }
 
-        static string FormatReloadTime(DateTime? utc)
+        static string FormatHotReloadTime(DateTime? utc)
         {
             if (!utc.HasValue)
                 return "—";
@@ -226,6 +272,25 @@ namespace Fumo.EditorWasm
             RepaintLogs();
         }
 
+        void ApplyProgress(string title, string info, float progress)
+        {
+            if (_progress == null)
+                return;
+
+            var label = string.IsNullOrEmpty(info) ? title : $"{title} — {info}";
+            _progress.title = string.IsNullOrEmpty(label) ? "Working" : label;
+            _progress.value = progress * 100f;
+        }
+
+        void ApplyClearProgress()
+        {
+            if (_progress == null)
+                return;
+
+            _progress.title = "Idle";
+            _progress.value = 0;
+        }
+
         void ApplyTrap(string json, string shortMessage)
         {
             _lastTrapJson = json ?? string.Empty;
@@ -234,28 +299,6 @@ namespace Fumo.EditorWasm
             if (!string.IsNullOrEmpty(shortMessage))
                 ApplyLog($"TRAP: {shortMessage}");
         }
-
-        public void SetStatus(string text) => NotifyStatus(text);
-
-        public void SetProgress(string title, float value)
-        {
-            if (_progress == null)
-                return;
-            _progress.title = title;
-            _progress.value = value * 100f;
-        }
-
-        public void ClearProgress()
-        {
-            if (_progress == null)
-                return;
-            _progress.title = "Idle";
-            _progress.value = 0;
-        }
-
-        public void AppendLog(string line) => NotifyLog(line);
-
-        public void ShowTrap(TrapReport report) => NotifyTrap(report);
 
         void RepaintLogs()
         {

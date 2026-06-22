@@ -107,7 +107,12 @@ namespace Fumo.EditorWasm
             }
             catch (TrapException ex)
             {
-                LastTrapReport = TrapReport.FromException(_manifest?.id ?? "unknown", ex, _store?.Fuel ?? 0, _trace);
+                LastTrapReport = TrapReport.FromException(
+                    _manifest?.id ?? "unknown",
+                    exportName,
+                    ex,
+                    _store?.Fuel ?? 0,
+                    _trace);
                 Debug.LogError($"[WasmEditor] Trap in '{exportName}':\n{LastTrapReport.ToJson()}");
                 throw;
             }

@@ -9,6 +9,7 @@ namespace Fumo.EditorWasm
 {
     /// <summary>
     /// Exports editor-api WIT contracts as JSON Schema for AI agents.
+    /// Note: hand-maintained until M2 generates this from host-imports.v1.json.
     /// </summary>
     public static class SchemaExporter
     {

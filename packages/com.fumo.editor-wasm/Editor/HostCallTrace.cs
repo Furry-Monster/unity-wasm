@@ -55,7 +55,12 @@ namespace Fumo.EditorWasm
             return UnityEngine.JsonUtility.ToJson(this, prettyPrint: true);
         }
 
-        public static TrapReport FromException(string toolId, Wasmtime.TrapException ex, ulong fuelRemaining, HostCallTrace trace)
+        public static TrapReport FromException(
+            string toolId,
+            string exportName,
+            Wasmtime.TrapException ex,
+            ulong fuelRemaining,
+            HostCallTrace trace)
         {
             var frames = ex.Frames;
             var stack = new TrapFrameReport[frames?.Count ?? 0];
@@ -76,7 +81,7 @@ namespace Fumo.EditorWasm
                 toolId = toolId,
                 trapMessage = ex.Message,
                 trapCode = ex.Type.ToString(),
-                wasmFunc = stack.Length > 0 ? stack[0].func : null,
+                wasmFunc = exportName,
                 stack = stack,
                 fuelRemaining = fuelRemaining,
                 hostCallTrace = trace.Snapshot() is { Count: > 0 } t ? t.ToArray() : Array.Empty<string>(),

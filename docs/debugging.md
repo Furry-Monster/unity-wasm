@@ -19,7 +19,7 @@ When a guest traps, `WasmEditorHost.LastTrapReport` contains JSON:
 - `fuel_remaining`
 - `host_call_trace` — recent host imports
 
-View in **Window → Wasm Editor → Tool Shell** or Unity Console.
+View in **Tools → Wasm Editor → Open Tool Shell** or Unity Console.
 
 ## Source-Level Debugging
 

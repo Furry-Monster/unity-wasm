@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using Wasmtime;
 
 namespace Fumo.EditorWasm
 {
@@ -15,7 +16,7 @@ namespace Fumo.EditorWasm
         readonly Dictionary<string, DateTime> _pendingReload = new();
         readonly Dictionary<string, WasmEditorHost> _hosts = new();
         readonly Dictionary<string, ToolManifest> _manifests = new();
-        readonly Dictionary<string, DateTime> _lastReloadUtc = new();
+        readonly Dictionary<string, DateTime> _lastHotReloadUtc = new();
 
         bool _disposed;
         double _lastPollTime;
@@ -25,9 +26,9 @@ namespace Fumo.EditorWasm
 
         public IReadOnlyDictionary<string, WasmEditorHost> Hosts => _hosts;
 
-        public DateTime? GetLastReloadUtc(string toolId)
+        public DateTime? GetLastHotReloadUtc(string toolId)
         {
-            if (_lastReloadUtc.TryGetValue(toolId, out var utc))
+            if (_lastHotReloadUtc.TryGetValue(toolId, out var utc))
                 return utc;
             return null;
         }
@@ -42,15 +43,11 @@ namespace Fumo.EditorWasm
             if (_hosts.TryGetValue(manifest.id, out var existing))
             {
                 if (!string.Equals(existing.Manifest?.WasmPath, manifest.WasmPath, StringComparison.Ordinal))
-                {
-                    existing.LoadFromManifest(manifest);
-                    RecordReload(manifest.id);
-                }
+                    TryRunLoad(manifest, host => host.LoadFromManifest(manifest));
             }
             else
             {
-                EnsureHost(manifest);
-                RecordReload(manifest.id);
+                TryRunLoad(manifest, host => host.LoadFromManifest(manifest));
             }
 
             EnsureWatching(manifest);
@@ -84,12 +81,21 @@ namespace Fumo.EditorWasm
 
         public void InvokeMenu(ToolManifest manifest)
         {
-            var host = EnsureHost(manifest);
+            if (!TryRunLoad(manifest, host =>
+                {
+                    if (!host.IsLoaded)
+                        host.LoadFromManifest(manifest);
+                }))
+                return;
+
+            if (!_hosts.TryGetValue(manifest.id, out var host))
+                return;
+
             try
             {
                 host.CallExport(manifest.exports.on_menu_click);
             }
-            catch (Wasmtime.TrapException)
+            catch (TrapException)
             {
                 ToolTrapped?.Invoke(manifest, host.LastTrapReport);
             }
@@ -118,32 +124,51 @@ namespace Fumo.EditorWasm
                 if (!_manifests.TryGetValue(toolId, out var manifest))
                     continue;
 
-                try
-                {
-                    var host = EnsureHost(manifest);
-                    host.ReloadFromDisk();
-                    RecordReload(toolId);
-                    ToolReloaded?.Invoke(manifest);
-                    Debug.Log($"[WasmEditor] Hot-reloaded '{manifest.name}' ({manifest.id})");
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[WasmEditor] Hot reload failed for '{toolId}': {ex.Message}");
-                }
+                if (!TryRunLoad(manifest, host => host.ReloadFromDisk()))
+                    continue;
+
+                RecordHotReload(toolId);
+                ToolReloaded?.Invoke(manifest);
+                Debug.Log($"[WasmEditor] Hot-reloaded '{manifest.name}' ({manifest.id})");
             }
         }
 
-        void RecordReload(string toolId) => _lastReloadUtc[toolId] = DateTime.UtcNow;
+        void RecordHotReload(string toolId) => _lastHotReloadUtc[toolId] = DateTime.UtcNow;
 
-        WasmEditorHost EnsureHost(ToolManifest manifest)
+        bool TryRunLoad(ToolManifest manifest, Action<WasmEditorHost> load)
         {
-            if (_hosts.TryGetValue(manifest.id, out var existing))
-                return existing;
+            WasmEditorHost host = null;
+            var isNew = false;
 
-            var host = new WasmEditorHost(debugInfo: true);
-            host.LoadFromManifest(manifest);
-            _hosts[manifest.id] = host;
-            return host;
+            try
+            {
+                if (!_hosts.TryGetValue(manifest.id, out host))
+                {
+                    host = new WasmEditorHost(debugInfo: true);
+                    isNew = true;
+                }
+
+                load(host);
+
+                if (isNew)
+                    _hosts[manifest.id] = host;
+
+                return true;
+            }
+            catch (TrapException)
+            {
+                ToolTrapped?.Invoke(manifest, host?.LastTrapReport);
+                if (isNew && host != null)
+                    host.Dispose();
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[WasmEditor] Load failed for '{manifest.id}': {ex.Message}");
+                if (isNew && host != null)
+                    host.Dispose();
+                return false;
+            }
         }
 
         void EnsureWatching(ToolManifest manifest)
@@ -199,7 +224,7 @@ namespace Fumo.EditorWasm
 
             _manifests.Remove(toolId);
             _pendingReload.Remove(toolId);
-            _lastReloadUtc.Remove(toolId);
+            _lastHotReloadUtc.Remove(toolId);
         }
 
         public void Dispose()
@@ -215,7 +240,7 @@ namespace Fumo.EditorWasm
             _hosts.Clear();
             _manifests.Clear();
             _pendingReload.Clear();
-            _lastReloadUtc.Clear();
+            _lastHotReloadUtc.Clear();
             _disposed = true;
         }
     }

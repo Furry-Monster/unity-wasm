@@ -42,16 +42,27 @@ namespace Fumo.EditorWasm
                 var message = WasmMemoryBridge.ReadString(GetMemory(caller), ptr, len);
                 switch (level)
                 {
-                    case 1: Debug.LogWarning(message); break;
-                    case 2: Debug.LogError(message); break;
-                    default: Debug.Log(message); break;
+                    case 1:
+                        Debug.LogWarning(message);
+                        ToolWindowShell.NotifyLog($"WARN: {message}");
+                        break;
+                    case 2:
+                        Debug.LogError(message);
+                        ToolWindowShell.NotifyLog($"ERROR: {message}");
+                        break;
+                    default:
+                        Debug.Log(message);
+                        ToolWindowShell.NotifyLog(message);
+                        break;
                 }
             });
 
             linker.DefineFunction("editor_core", "log_error", (Caller caller, int ptr, int len) =>
             {
                 Trace("editor_core", "log_error");
-                Debug.LogError(WasmMemoryBridge.ReadString(GetMemory(caller), ptr, len));
+                var message = WasmMemoryBridge.ReadString(GetMemory(caller), ptr, len);
+                Debug.LogError(message);
+                ToolWindowShell.NotifyLog($"ERROR: {message}");
             });
 
             linker.DefineFunction("editor_core", "get_editor_time", () =>
@@ -67,12 +78,14 @@ namespace Fumo.EditorWasm
                 var title = WasmMemoryBridge.ReadString(memory, titlePtr, titleLen);
                 var info = WasmMemoryBridge.ReadString(memory, infoPtr, infoLen);
                 EditorUtility.DisplayProgressBar(title, info, progress);
+                ToolWindowShell.NotifyProgress(title, info, progress);
             });
 
             linker.DefineFunction("editor_core", "clear_progress", () =>
             {
                 Trace("editor_core", "clear_progress");
                 EditorUtility.ClearProgressBar();
+                ToolWindowShell.NotifyClearProgress();
             });
         }
 

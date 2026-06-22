@@ -4,8 +4,8 @@ using UnityEngine;
 namespace Fumo.EditorWasm.WebView
 {
     /// <summary>
-    /// Phase 3 placeholder for WebView ↔ Host ↔ WASM messaging.
-    /// Integrate Vuplex or another embedded browser to enable React/Vue tool UIs.
+    /// M4 optional POC placeholder for WebView ↔ Host ↔ WASM messaging.
+    /// Integrate an embedded browser (e.g. Vuplex) when a web-based tool UI is needed.
     /// </summary>
     public static class WebViewBridge
     {
