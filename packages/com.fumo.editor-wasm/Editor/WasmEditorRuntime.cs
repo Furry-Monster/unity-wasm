@@ -68,18 +68,6 @@ namespace Fumo.EditorWasm
             ToolsChanged?.Invoke();
         }
 
-        public static void PopulateRunToolMenu(GenericMenu menu)
-        {
-            foreach (var tool in OrderedTools)
-            {
-                var toolId = tool.id;
-                menu.AddItem(new GUIContent(tool.name), false, () => InvokeTool(toolId));
-            }
-
-            if (_tools.Count == 0)
-                menu.AddDisabledItem(new GUIContent("(No tools — Refresh Tools)"));
-        }
-
         public static void InvokeTool(string toolId)
         {
             EnsureReady();

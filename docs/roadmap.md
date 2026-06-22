@@ -150,7 +150,7 @@ flowchart TB
 
 | ID | 交付物 |
 |----|--------|
-| M1-D1 | 动态工具入口（GenericMenu + Tool Shell Run） |
+| M1-D1 | 动态工具入口（Run Tool 弹窗 + Tool Shell Run） |
 | M1-D2 | `examples/asset-scanner` |
 | M1-D3 | `sdk/rust/template` |
 | M1-D4 | Tool Shell 增强（列表 / Run / Trap 复制 / last reload） |
@@ -160,7 +160,7 @@ flowchart TB
 
 | 任务 | 要点 |
 |------|------|
-| M1-T1 | `Tools → Wasm Editor → Run Tool...` 动态菜单；删硬编码 `RunSelectionLogger` |
+| M1-T1 | `Tools → Wasm Editor → Run Tool...` 工具选择弹窗；删硬编码 `RunSelectionLogger` |
 | M1-T2 | asset-scanner：Tier 2 + progress |
 | M1-T3 | Rust 模板 + `CARGO_TARGET_DIR=target` |
 | M1-T4 | Tool Shell Launcher UI |
@@ -177,7 +177,7 @@ flowchart TB
 
 | 风险 | 缓解 |
 |------|------|
-| GenericMenu 行为差异 | Tool Shell 为主入口 |
+| Unity 不支持 MenuItem 动态 GenericMenu | 使用 `RunToolWindow`（ShowPopup）；Tool Shell 为完整入口 |
 | asset-scanner 卡顿 | M1 允许同步+进度条；M3 分帧 |
 
 ---
