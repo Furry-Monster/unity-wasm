@@ -64,7 +64,22 @@ namespace Fumo.EditorWasm
             if (newFocus != null && _root.Contains(newFocus))
                 return;
 
-            Close();
+            // Close after the focus event finishes; synchronous Close() re-enters HostView.OnLostFocus.
+            RequestDismiss();
+        }
+
+        void RequestDismiss()
+        {
+            if (_root == null)
+                return;
+
+            _root.schedule.Execute(Dismiss).StartingIn(0);
+        }
+
+        void Dismiss()
+        {
+            if (this != null)
+                Close();
         }
 
         void RebuildList()
@@ -86,7 +101,7 @@ namespace Fumo.EditorWasm
                 var button = new Button(() =>
                 {
                     WasmEditorRuntime.InvokeTool(toolId);
-                    Close();
+                    RequestDismiss();
                 })
                 {
                     text = tool.name,
