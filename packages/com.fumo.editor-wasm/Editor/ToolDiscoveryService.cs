@@ -93,6 +93,7 @@ namespace Fumo.EditorWasm
                 return null;
 
             manifest.rootPath = Path.GetDirectoryName(Path.GetFullPath(toolJsonPath));
+            manifest.abiDeclared = json.IndexOf("\"abi\"", StringComparison.Ordinal) >= 0;
             return manifest;
         }
     }

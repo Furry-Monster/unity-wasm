@@ -32,7 +32,7 @@ When using `WebViewBridge`, use browser DevTools for HTML/CSS/TS debugging separ
 
 ## Verbose Host Import Log
 
-**Tools → Wasm Editor → Verbose Host Import Log** toggles per-call logging of host imports to the Unity Console. Each line includes module, function, and key arguments (when available).
+**Tools → Wasm Editor → Verbose Host Import Log** toggles per-call logging of host imports to the Unity Console. Each line logs `module.function` (no argument values).
 
 Use this when diagnosing unexpected host behavior or verifying which imports a tool invokes during a Run.
 

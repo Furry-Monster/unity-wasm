@@ -47,7 +47,7 @@ namespace Fumo.EditorWasm
                     name = tool.name,
                     version = tool.version,
                     abi = tool.abi,
-                    wasm_path = tool.WasmPath,
+                    wasm_path = string.IsNullOrEmpty(tool.entry) ? "bin/tool.wasm" : tool.entry.Replace('\\', '/'),
                     menu = tool.menu
                 });
             }

@@ -50,8 +50,13 @@ namespace Fumo.EditorWasm
             if (wasmBytes == null || wasmBytes.Length == 0)
                 throw new ArgumentException("WASM bytecode is empty.", nameof(wasmBytes));
 
-            if (!AbiVersion.IsSupported(manifest.abi))
-                throw new InvalidOperationException(AbiVersion.GetErrorMessage(manifest.abi, manifest.id));
+            AbiVersion.ValidateForLoad(manifest);
+
+            var candidate = Module.FromBytes(_engine, manifest.id ?? "tool", wasmBytes);
+            if (!HostImportRegistryRuntime.ValidateGuestImports(candidate, out var importError))
+                throw new InvalidOperationException(importError);
+            if (!HostImportRegistryRuntime.ValidateGuestExports(candidate, manifest, out var exportError))
+                throw new InvalidOperationException(exportError);
 
             Unload();
 
@@ -66,15 +71,12 @@ namespace Fumo.EditorWasm
             _trace.Clear();
             _bridge.RegisterImports(_linker);
 
-            _module = Module.FromBytes(_engine, manifest.id ?? "tool", wasmBytes);
-            if (!HostImportRegistryRuntime.ValidateGuestImports(_module, out var importError))
-                throw new InvalidOperationException(importError);
-
+            _module = candidate;
             _instance = _linker.Instantiate(_store, _module);
             _guestMemory = _instance.GetMemory("memory");
             _bridge.SetGuestMemory(_guestMemory);
 
-            CallExport(manifest.exports.on_init, optional: true);
+            CallExport(manifest.exports.on_init, optional: false);
         }
 
         public void LoadFromManifest(ToolManifest manifest)

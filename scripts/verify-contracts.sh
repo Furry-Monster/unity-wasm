@@ -18,4 +18,6 @@ done
 
 echo "==> Verifying wasm imports against host-imports.v1.json"
 python3 "$root/scripts/verify_wasm_imports.py"
+echo "==> Verifying generated HostImportRegistry vs manifest"
+python3 "$root/scripts/verify_host_registry.py"
 echo "Contract verification passed."
