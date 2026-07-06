@@ -1,6 +1,22 @@
 ﻿{
-    "generated_at_utc": "2026-06-21T14:13:09.9526570Z",
+    "generated_at_utc": "2026-07-06T14:49:23.2815140Z",
     "tools": [
+        {
+            "id": "com.fumo.asset-scanner",
+            "name": "Asset Scanner",
+            "version": "0.1.0",
+            "abi": "editor-api/1",
+            "wasm_path": "/home/furrymonster/Projects/Misc/unity-wasm/examples/asset-scanner/bin/tool.wasm",
+            "menu": "Tools/Wasm Editor/Run Tool/Asset Scanner"
+        },
+        {
+            "id": "com.fumo.prefab-inspector-lite",
+            "name": "Prefab Inspector Lite",
+            "version": "0.1.0",
+            "abi": "editor-api/1",
+            "wasm_path": "/home/furrymonster/Projects/Misc/unity-wasm/examples/prefab-inspector-lite/bin/tool.wasm",
+            "menu": "Tools/Wasm Editor/Run Tool/Prefab Inspector Lite"
+        },
         {
             "id": "com.fumo.selection-logger",
             "name": "Selection Logger",
