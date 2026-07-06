@@ -1,0 +1,18 @@
+package fumo:editor-api@1;
+
+use editor-selection.{object-handle};
+
+/// Tier 3 — scene hierarchy and component introspection (read-only).
+interface editor-scene {
+  /// Returns the hierarchy path for a GameObject handle, e.g. `Root/Child`.
+  get-object-path: func(handle: object-handle) -> option<string>;
+
+  /// Reads a serialized property value as text (property path uses Unity dot notation).
+  get-serialized-property: func(handle: object-handle, property-path: string) -> option<string>;
+
+  /// Returns the number of components on a GameObject.
+  get-component-count: func(handle: object-handle) -> u32;
+
+  /// Returns the fully-qualified type name of the component at index.
+  get-component-type-at: func(handle: object-handle, index: u32) -> option<string>;
+}

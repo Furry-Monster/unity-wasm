@@ -8,21 +8,36 @@ using UnityEngine;
 namespace Fumo.EditorWasm
 {
     /// <summary>
-    /// Exports editor-api WIT contracts as JSON Schema for AI agents.
-    /// Note: hand-maintained until M2 generates this from host-imports.v1.json.
+    /// Exports editor-api schema for AI agents from host-imports.v1.json.
     /// </summary>
     public static class SchemaExporter
     {
+        [Serializable]
+        class ManifestRoot
+        {
+            public string abi;
+            public string description;
+            public ManifestImport[] imports;
+        }
+
+        [Serializable]
+        class ManifestImport
+        {
+            public string module;
+            public string name;
+            public string[] @params;
+            public string[] returns;
+            public int tier;
+        }
+
         public static string DefaultOutputPath
         {
             get
             {
-                var projectRoot = Directory.GetParent(Application.dataPath)?.FullName;
-                var repoRoot = Path.GetFullPath(Path.Combine(projectRoot ?? ".", ".."));
-                var schemasDir = Directory.Exists(Path.Combine(repoRoot, "schemas"))
-                    ? Path.Combine(repoRoot, "schemas")
-                    : Path.Combine(projectRoot ?? ".", "schemas");
-                return Path.Combine(schemasDir, "editor-api.schema.json");
+                var manifestPath = Generator.HostImportRegistryGenerator.ResolveManifestPath(
+                    Generator.HostBindingGenerator.FindPackageRoot());
+                var schemasDir = Path.GetDirectoryName(manifestPath);
+                return Path.Combine(schemasDir ?? ".", "editor-api.schema.json");
             }
         }
 
@@ -36,54 +51,44 @@ namespace Fumo.EditorWasm
 
         public static string BuildSchemaJson()
         {
-            var schema = new SchemaDocument
+            var manifestPath = Generator.HostImportRegistryGenerator.ResolveManifestPath(
+                Generator.HostBindingGenerator.FindPackageRoot());
+            var json = File.ReadAllText(manifestPath);
+            var manifest = JsonUtility.FromJson<ManifestRoot>(json);
+            if (manifest?.imports == null)
+                throw new InvalidOperationException($"Invalid manifest: {manifestPath}");
+
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine($"  \"abi\": \"{manifest.abi}\",");
+            sb.AppendLine($"  \"description\": \"{Escape(manifest.description)}\",");
+            sb.AppendLine("  \"imports\": [");
+
+            for (var i = 0; i < manifest.imports.Length; i++)
             {
-                abi = "editor-api/1",
-                description = "Unity Editor WASM host API for tool agents.",
-                tools = new List<SchemaFunction>
-                {
-                    Fn("editor_core.log", "Write a message to the Unity console.", "void", new[] { Param("level", "integer"), Param("message", "string") }),
-                    Fn("editor_core.log_error", "Write an error to the Unity console.", "void", new[] { Param("message", "string") }),
-                    Fn("editor_core.get_editor_time", "Unity EditorApplication.timeSinceStartup.", "number", Array.Empty<SchemaParam>()),
-                    Fn("editor_selection.get_active_object", "Primary selected object handle.", "integer", Array.Empty<SchemaParam>()),
-                    Fn("editor_selection.get_active_asset_path", "Asset path of active selection.", "string", Array.Empty<SchemaParam>()),
-                    Fn("editor_selection.get_object_name", "Object name for handle.", "string", new[] { Param("handle", "integer") }),
-                    Fn("editor_assets.find_assets", "Find assets by filter.", "array", new[] { Param("filter", "string"), Param("search_paths", "array") }),
-                    Fn("editor_assets.load_text_asset", "Load TextAsset contents.", "string", new[] { Param("path", "string") }),
-                    Fn("editor_assets.asset_exists", "Whether asset exists.", "boolean", new[] { Param("path", "string") }),
-                }
-            };
+                var entry = manifest.imports[i];
+                sb.AppendLine("    {");
+                sb.AppendLine($"      \"name\": \"{entry.module}.{entry.name}\",");
+                sb.AppendLine($"      \"tier\": {entry.tier},");
+                sb.AppendLine($"      \"params\": {ToJsonArray(entry.@params)},");
+                sb.AppendLine($"      \"returns\": {ToJsonArray(entry.returns)}");
+                sb.Append(i == manifest.imports.Length - 1 ? "    }" : "    },");
+                sb.AppendLine();
+            }
 
-            return JsonUtility.ToJson(schema, prettyPrint: true);
+            sb.AppendLine("  ]");
+            sb.AppendLine("}");
+            return sb.ToString();
         }
 
-        static SchemaFunction Fn(string name, string description, string returns, SchemaParam[] parameters) =>
-            new SchemaFunction { name = name, description = description, returns = returns, parameters = parameters };
-
-        static SchemaParam Param(string name, string type) => new SchemaParam { name = name, type = type };
-
-        [Serializable]
-        class SchemaDocument
+        static string ToJsonArray(string[] values)
         {
-            public string abi;
-            public string description;
-            public List<SchemaFunction> tools;
+            if (values == null || values.Length == 0)
+                return "[]";
+            return "[\"" + string.Join("\", \"", values) + "\"]";
         }
 
-        [Serializable]
-        class SchemaFunction
-        {
-            public string name;
-            public string description;
-            public string returns;
-            public SchemaParam[] parameters;
-        }
-
-        [Serializable]
-        class SchemaParam
-        {
-            public string name;
-            public string type;
-        }
+        static string Escape(string value) =>
+            (value ?? string.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"");
     }
 }

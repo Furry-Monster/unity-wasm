@@ -19,5 +19,15 @@ namespace Fumo.EditorWasm
 
         [MenuItem("Tools/Wasm Editor/Generate Host Bindings", priority = 21)]
         public static void GenerateBindings() => HostBindingGenerator.Generate();
+
+        [MenuItem("Tools/Wasm Editor/Verbose Host Import Log", priority = 30)]
+        public static void ToggleVerboseHostLog() => HostImportVerbose.Toggle();
+
+        [MenuItem("Tools/Wasm Editor/Verbose Host Import Log", true, priority = 30)]
+        public static bool ToggleVerboseHostLogValidate()
+        {
+            Menu.SetChecked("Tools/Wasm Editor/Verbose Host Import Log", HostImportVerbose.Enabled);
+            return true;
+        }
     }
 }

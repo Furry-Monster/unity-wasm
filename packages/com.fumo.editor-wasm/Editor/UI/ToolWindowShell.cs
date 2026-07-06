@@ -29,6 +29,7 @@ namespace Fumo.EditorWasm
         Label _trap;
         ProgressBar _progress;
         string _lastTrapJson = string.Empty;
+        string _inspectToolId;
         bool _hotReloadSubscribed;
 
         Action<ToolManifest> _onToolReloadedHandler;
@@ -207,6 +208,9 @@ namespace Fumo.EditorWasm
             var runBtn = new Button(() => WasmEditorRuntime.InvokeTool(tool.id)) { text = "Run" };
             runBtn.style.width = 48;
 
+            var inspectBtn = new Button(() => _instance?.ToggleInspect(tool.id)) { text = "Inspect" };
+            inspectBtn.style.width = 56;
+
             var reloadLabel = new Label(FormatHotReloadTime(hotReload?.GetLastHotReloadUtc(tool.id)))
             {
                 style = { width = 72, color = Color.gray, fontSize = 10, unityTextAlign = TextAnchor.MiddleRight }
@@ -215,6 +219,7 @@ namespace Fumo.EditorWasm
 
             header.Add(nameLabel);
             header.Add(runBtn);
+            header.Add(inspectBtn);
             header.Add(reloadLabel);
 
             var meta = new Label(FormatToolMeta(tool))
@@ -225,7 +230,65 @@ namespace Fumo.EditorWasm
 
             card.Add(header);
             card.Add(meta);
+
+            if (_instance != null && _inspectToolId == tool.id)
+                card.Add(BuildInspectPanel(tool.id, hotReload));
+
             return card;
+        }
+
+        void ToggleInspect(string toolId)
+        {
+            _inspectToolId = _inspectToolId == toolId ? null : toolId;
+            RebuildToolsList();
+        }
+
+        static VisualElement BuildInspectPanel(string toolId, HotReloadService hotReload)
+        {
+            var panel = new VisualElement
+            {
+                style =
+                {
+                    marginTop = 4,
+                    paddingTop = 4,
+                    paddingLeft = 6,
+                    backgroundColor = new Color(0.15f, 0.15f, 0.15f, 0.35f)
+                }
+            };
+
+            var host = hotReload?.GetHost(toolId);
+            if (host == null || !host.IsLoaded)
+            {
+                panel.Add(new Label("(Tool not loaded — Run once or Refresh Tools)")
+                {
+                    style = { color = Color.gray, fontSize = 10, whiteSpace = WhiteSpace.Normal }
+                });
+                return panel;
+            }
+
+            var inspect = host.ModuleInspect;
+            panel.Add(new Label("Imports:") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 10 } });
+            foreach (var entry in inspect.Imports)
+                panel.Add(new Label("  " + entry) { style = { fontSize = 10, color = Color.gray } });
+
+            panel.Add(new Label("Exports:") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 10, marginTop = 2 } });
+            foreach (var entry in inspect.Exports)
+                panel.Add(new Label("  " + entry) { style = { fontSize = 10, color = Color.gray } });
+
+            var trace = host.Trace.Snapshot();
+            panel.Add(new Label("Recent host trace:") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 10, marginTop = 2 } });
+            if (trace.Count == 0)
+            {
+                panel.Add(new Label("  (empty)") { style = { fontSize = 10, color = Color.gray } });
+            }
+            else
+            {
+                var start = trace.Count > 8 ? trace.Count - 8 : 0;
+                for (var i = start; i < trace.Count; i++)
+                    panel.Add(new Label("  " + trace[i]) { style = { fontSize = 10, color = Color.gray } });
+            }
+
+            return panel;
         }
 
         static string FormatToolMeta(ToolManifest tool)

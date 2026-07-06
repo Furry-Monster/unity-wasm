@@ -40,3 +40,20 @@ Header at offset (12 bytes, little-endian):
 - `u32` payload length
 
 Payload follows immediately after the header.
+
+## editor_scene (Tier 3)
+
+| Import | Signature | Description |
+|--------|-----------|-------------|
+| `get_object_path` | `(handle, out ptr, max len) -> i32` | Hierarchy path bytes written |
+| `get_serialized_property` | `(handle, path ptr, path len, out ptr, max len) -> i32` | Serialized property value bytes |
+| `get_component_count` | `(handle) -> i32` | Component count on GameObject |
+| `get_component_type_at` | `(handle, index, out ptr, max len) -> i32` | Full type name bytes written |
+
+Semantic documentation: `wit/editor-api/scene.wit`. Lowered signatures: `schemas/host-imports.v1.json`.
+
+## Manifest & Codegen
+
+- **Truth source**: `schemas/host-imports.v1.json` — used by Host registry, schema export, and contract verification
+- **WIT files**: `wit/editor-api/*.wit` — human-readable API tiers (not enforced at load time)
+- **Rust imports**: `python3 scripts/gen-rust-imports.py src/imports.rs` — generates `extern "C"` blocks for all manifest imports

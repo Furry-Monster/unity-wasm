@@ -27,7 +27,9 @@ namespace Fumo.EditorWasm
 
         public ToolManifest Manifest => _manifest;
         public HostCallTrace Trace => _trace;
+        public EditorHostBridge Bridge => _bridge;
         public TrapReport LastTrapReport { get; private set; }
+        public ModuleInspect ModuleInspect => ModuleInspect.FromModule(_module);
         public bool IsLoaded => _instance != null;
 
         public WasmEditorHost(bool debugInfo = true)
@@ -48,6 +50,9 @@ namespace Fumo.EditorWasm
             if (wasmBytes == null || wasmBytes.Length == 0)
                 throw new ArgumentException("WASM bytecode is empty.", nameof(wasmBytes));
 
+            if (!AbiVersion.IsSupported(manifest.abi))
+                throw new InvalidOperationException(AbiVersion.GetErrorMessage(manifest.abi, manifest.id));
+
             Unload();
 
             _manifest = manifest;
@@ -62,6 +67,9 @@ namespace Fumo.EditorWasm
             _bridge.RegisterImports(_linker);
 
             _module = Module.FromBytes(_engine, manifest.id ?? "tool", wasmBytes);
+            if (!HostImportRegistryRuntime.ValidateGuestImports(_module, out var importError))
+                throw new InvalidOperationException(importError);
+
             _instance = _linker.Instantiate(_store, _module);
             _guestMemory = _instance.GetMemory("memory");
             _bridge.SetGuestMemory(_guestMemory);

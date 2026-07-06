@@ -9,13 +9,20 @@ using UnityEngine;
 namespace Fumo.EditorWasm.Generator
 {
     /// <summary>
-    /// Generates a registry of host API surface area (xLua Generator pattern).
+    /// Generates host binding artifacts (import registry + API schema + attribute registry).
     /// </summary>
     public static class HostBindingGenerator
     {
         const string OutputRelative = "Generated/EditorHostApiRegistry.g.cs";
 
         public static void Generate()
+        {
+            HostImportRegistryGenerator.Generate();
+            SchemaExporter.ExportToDefaultPath();
+            GenerateApiTypeRegistry();
+        }
+
+        static void GenerateApiTypeRegistry()
         {
             var packageRoot = FindPackageRoot();
             var outputPath = Path.Combine(packageRoot, OutputRelative);
@@ -53,10 +60,10 @@ namespace Fumo.EditorWasm.Generator
 
             File.WriteAllText(outputPath, sb.ToString());
             AssetDatabase.Refresh();
-            Debug.Log($"[WasmEditor] Generated host API registry at {outputPath}");
+            Debug.Log($"[WasmEditor] Generated host API type registry at {outputPath}");
         }
 
-        static string FindPackageRoot()
+        public static string FindPackageRoot()
         {
             var guids = AssetDatabase.FindAssets("Fumo.EditorWasm asmdef");
             foreach (var guid in guids)

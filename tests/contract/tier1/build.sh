@@ -5,5 +5,4 @@ root="$(cd ../../.. && pwd)"
 python3 "$root/scripts/gen-rust-imports.py" "src/imports.rs"
 CARGO_TARGET_DIR=target cargo build --target wasm32-unknown-unknown --release
 mkdir -p bin
-cp target/wasm32-unknown-unknown/release/hello_tool.wasm bin/tool.wasm
-echo "Built bin/tool.wasm ($(wc -c < bin/tool.wasm) bytes)"
+cp target/wasm32-unknown-unknown/release/contract_tier1.wasm bin/tool.wasm
