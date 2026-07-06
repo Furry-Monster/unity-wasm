@@ -186,7 +186,7 @@ namespace Fumo.EditorWasm
                 _toolsList.Add(BuildToolRow(tool, hotReload));
         }
 
-        static VisualElement BuildToolRow(ToolManifest tool, HotReloadService hotReload)
+        VisualElement BuildToolRow(ToolManifest tool, HotReloadService hotReload)
         {
             var card = new VisualElement
             {
@@ -208,7 +208,7 @@ namespace Fumo.EditorWasm
             var runBtn = new Button(() => WasmEditorRuntime.InvokeTool(tool.id)) { text = "Run" };
             runBtn.style.width = 48;
 
-            var inspectBtn = new Button(() => _instance?.ToggleInspect(tool.id)) { text = "Inspect" };
+            var inspectBtn = new Button(() => ToggleInspect(tool.id)) { text = "Inspect" };
             inspectBtn.style.width = 56;
 
             var reloadLabel = new Label(FormatHotReloadTime(hotReload?.GetLastHotReloadUtc(tool.id)))
@@ -231,7 +231,7 @@ namespace Fumo.EditorWasm
             card.Add(header);
             card.Add(meta);
 
-            if (_instance != null && _inspectToolId == tool.id)
+            if (_inspectToolId == tool.id)
                 card.Add(BuildInspectPanel(tool.id, hotReload));
 
             return card;
@@ -243,7 +243,7 @@ namespace Fumo.EditorWasm
             RebuildToolsList();
         }
 
-        static VisualElement BuildInspectPanel(string toolId, HotReloadService hotReload)
+        VisualElement BuildInspectPanel(string toolId, HotReloadService hotReload)
         {
             var panel = new VisualElement
             {

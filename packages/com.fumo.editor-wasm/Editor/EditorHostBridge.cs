@@ -348,7 +348,91 @@ namespace Fumo.EditorWasm
             throw new InvalidOperationException("Guest module does not export linear memory.");
         }
 
-        void Define<T>(Linker linker, string module, string name, T callback)
+        void Define(Linker linker, string module, string name, Action callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, Func<double> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, Func<int> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, Func<long> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, Func<int, long> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, Func<long, int> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, CallerAction<int, int> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, CallerAction<int, int, int> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, CallerAction<int, int, int, int, float> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, CallerFunc<int, int, int> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, CallerFunc<long, int, int, int> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, CallerFunc<int, int, int, int, int> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, CallerFunc<int, int, int, int, int, int, int, int> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, CallerFunc<long, int, int, int, int, int> callback)
+        {
+            linker.DefineFunction(module, name, callback);
+            _registeredKeys.Add($"{module}.{name}");
+        }
+
+        void Define(Linker linker, string module, string name, CallerFunc<long, int, int, int, int> callback)
         {
             linker.DefineFunction(module, name, callback);
             _registeredKeys.Add($"{module}.{name}");
