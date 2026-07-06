@@ -14,7 +14,7 @@ namespace Fumo.EditorWasm.Generator
     public static class HostImportRegistryGenerator
     {
         const string ManifestRelative = "schemas/host-imports.v1.json";
-        const string OutputRelative = "Generated/HostImportRegistry.g.cs";
+        const string OutputRelative = "Editor/Generated/HostImportRegistry.g.cs";
 
         [Serializable]
         class ManifestRoot

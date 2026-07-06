@@ -13,7 +13,7 @@ namespace Fumo.EditorWasm.Generator
     /// </summary>
     public static class HostBindingGenerator
     {
-        const string OutputRelative = "Generated/EditorHostApiRegistry.g.cs";
+        const string OutputRelative = "Editor/Generated/EditorHostApiRegistry.g.cs";
 
         public static void Generate()
         {
