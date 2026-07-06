@@ -1,98 +1,120 @@
 ﻿{
-    "abi": "editor-api/1",
-    "description": "Unity Editor WASM host API for tool agents.",
-    "tools": [
-        {
-            "name": "editor_core.log",
-            "description": "Write a message to the Unity console.",
-            "returns": "void",
-            "parameters": [
-                {
-                    "name": "level",
-                    "type": "integer"
-                },
-                {
-                    "name": "message",
-                    "type": "string"
-                }
-            ]
-        },
-        {
-            "name": "editor_core.log_error",
-            "description": "Write an error to the Unity console.",
-            "returns": "void",
-            "parameters": [
-                {
-                    "name": "message",
-                    "type": "string"
-                }
-            ]
-        },
-        {
-            "name": "editor_core.get_editor_time",
-            "description": "Unity EditorApplication.timeSinceStartup.",
-            "returns": "number",
-            "parameters": []
-        },
-        {
-            "name": "editor_selection.get_active_object",
-            "description": "Primary selected object handle.",
-            "returns": "integer",
-            "parameters": []
-        },
-        {
-            "name": "editor_selection.get_active_asset_path",
-            "description": "Asset path of active selection.",
-            "returns": "string",
-            "parameters": []
-        },
-        {
-            "name": "editor_selection.get_object_name",
-            "description": "Object name for handle.",
-            "returns": "string",
-            "parameters": [
-                {
-                    "name": "handle",
-                    "type": "integer"
-                }
-            ]
-        },
-        {
-            "name": "editor_assets.find_assets",
-            "description": "Find assets by filter.",
-            "returns": "array",
-            "parameters": [
-                {
-                    "name": "filter",
-                    "type": "string"
-                },
-                {
-                    "name": "search_paths",
-                    "type": "array"
-                }
-            ]
-        },
-        {
-            "name": "editor_assets.load_text_asset",
-            "description": "Load TextAsset contents.",
-            "returns": "string",
-            "parameters": [
-                {
-                    "name": "path",
-                    "type": "string"
-                }
-            ]
-        },
-        {
-            "name": "editor_assets.asset_exists",
-            "description": "Whether asset exists.",
-            "returns": "boolean",
-            "parameters": [
-                {
-                    "name": "path",
-                    "type": "string"
-                }
-            ]
-        }
-    ]
+  "abi": "editor-api/1",
+  "description": "Lowered FFI imports for Unity Editor WASM tools. Single source of truth for Host, Schema, Rust codegen, and contract verification.",
+  "imports": [
+    {
+      "name": "editor_core.log",
+      "tier": 0,
+      "params": ["i32", "i32", "i32"],
+      "returns": []
+    },
+    {
+      "name": "editor_core.log_error",
+      "tier": 0,
+      "params": ["i32", "i32"],
+      "returns": []
+    },
+    {
+      "name": "editor_core.get_editor_time",
+      "tier": 0,
+      "params": [],
+      "returns": ["f64"]
+    },
+    {
+      "name": "editor_core.show_progress",
+      "tier": 0,
+      "params": ["i32", "i32", "i32", "i32", "f32"],
+      "returns": []
+    },
+    {
+      "name": "editor_core.clear_progress",
+      "tier": 0,
+      "params": [],
+      "returns": []
+    },
+    {
+      "name": "editor_selection.get_active_object",
+      "tier": 1,
+      "params": [],
+      "returns": ["i64"]
+    },
+    {
+      "name": "editor_selection.get_active_objects_count",
+      "tier": 1,
+      "params": [],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_selection.get_active_object_at",
+      "tier": 1,
+      "params": ["i32"],
+      "returns": ["i64"]
+    },
+    {
+      "name": "editor_selection.get_active_asset_path",
+      "tier": 1,
+      "params": ["i32", "i32"],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_selection.get_object_name",
+      "tier": 1,
+      "params": ["i64", "i32", "i32"],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_assets.asset_exists",
+      "tier": 2,
+      "params": ["i32", "i32"],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_assets.find_assets_count",
+      "tier": 2,
+      "params": ["i32", "i32", "i32", "i32"],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_assets.find_asset_at",
+      "tier": 2,
+      "params": ["i32", "i32", "i32", "i32", "i32", "i32", "i32"],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_assets.load_text_asset",
+      "tier": 2,
+      "params": ["i32", "i32", "i32", "i32"],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_assets.write_bulk_payload",
+      "tier": 2,
+      "params": ["i32", "i32", "i32", "i32"],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_scene.get_object_path",
+      "tier": 3,
+      "params": ["i64", "i32", "i32"],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_scene.get_serialized_property",
+      "tier": 3,
+      "params": ["i64", "i32", "i32", "i32", "i32"],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_scene.get_component_count",
+      "tier": 3,
+      "params": ["i64"],
+      "returns": ["i32"]
+    },
+    {
+      "name": "editor_scene.get_component_type_at",
+      "tier": 3,
+      "params": ["i64", "i32", "i32", "i32"],
+      "returns": ["i32"]
+    }
+  ]
 }

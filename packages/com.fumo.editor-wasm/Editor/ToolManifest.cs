@@ -17,6 +17,8 @@ namespace Fumo.EditorWasm
         public ToolExportMap exports = new();
 
         [NonSerialized] public string rootPath;
+        /// <summary>True when tool.json explicitly contains an "abi" field.</summary>
+        [NonSerialized] public bool abiDeclared;
 
         public string WasmPath => Path.GetFullPath(Path.Combine(rootPath, entry));
 

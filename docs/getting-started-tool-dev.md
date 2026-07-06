@@ -97,26 +97,24 @@ Full reference: [host-api.md](host-api.md)
 
 ### Rust extern declarations
 
-Module names **must** match exactly:
+Generate the full import surface from the repo manifest (recommended):
+
+```bash
+python3 scripts/gen-rust-imports.py src/imports.rs
+```
+
+Then `mod imports;` and call `imports::log(...)`, etc. Module names **must** match `schemas/host-imports.v1.json`:
 
 ```rust
-#[link(wasm_import_module = "editor_core")]
-extern "C" {
-    fn log(level: i32, ptr: i32, len: i32);
-    fn show_progress(title_ptr: i32, title_len: i32, info_ptr: i32, info_len: i32, progress: f32);
-    fn clear_progress();
-}
+mod imports;
 
-#[link(wasm_import_module = "editor_selection")]
-extern "C" {
-    fn get_active_object() -> i64;
-}
-
-#[link(wasm_import_module = "editor_assets")]
-extern "C" {
-    fn find_assets_count(filter_ptr: i32, filter_len: i32, paths_ptr: i32, paths_len: i32) -> i32;
+unsafe {
+    imports::log(0, msg.as_ptr() as i32, msg.len() as i32);
+    let handle = imports::get_active_object();
 }
 ```
+
+Manual `#[link(wasm_import_module = "...")]` blocks are fine for minimal tools; keep names in sync with [host-api.md](host-api.md).
 
 ### Required wasm exports
 
@@ -205,8 +203,10 @@ Tool authors normally place tools in one of the default paths above.
 | Trap on Run | Guest panic or bad memory access | Tool Shell → Copy JSON; fix Rust |
 | Hot reload not firing | Wrong output path | `build.sh` must copy to `bin/tool.wasm` |
 | Duplicate tool ID | Two manifests share `id` | Use unique `id` per tool |
+| Tool skipped on load | Wrong `abi` | Must be `editor-api/1` (enforced in M2) |
+| Unknown import at load | Guest imports not in manifest | Run `./scripts/verify-contracts.sh`; align with host-imports.v1.json |
 
-**ABI field:** `tool.json.abi` is documented but **not enforced until M2**. Still set it to `editor-api/1` for forward compatibility.
+**ABI field:** `tool.json.abi` must be `editor-api/1`. Other values are rejected at load time.
 
 ---
 
@@ -214,8 +214,9 @@ Tool authors normally place tools in one of the default paths above.
 
 | Tool | Path | Demonstrates |
 |------|------|--------------|
-| Selection Logger | `examples/selection-logger` | Tier 1 selection API |
+| Selection Logger | `examples/selection-logger` | Tier 1 selection API + generated imports |
 | Asset Scanner | `examples/asset-scanner` | Tier 2 assets + progress bar |
+| Prefab Inspector Lite | `examples/prefab-inspector-lite` | Tier 3 scene / component introspection |
 | Hello Tool (template) | `sdk/rust/template` | Minimal starting point |
 
 > **Performance note (M1):** Asset Scanner walks assets on the Editor main thread and may freeze briefly on large projects. This is expected for M1; batched scanning is planned for M3 ([roadmap](roadmap.md)).

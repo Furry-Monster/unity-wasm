@@ -12,10 +12,5 @@ interface editor-assets {
   asset-exists: func(path: string) -> bool;
 }
 
-/// Bulk data transfer via guest linear memory.
-/// Header layout (little-endian): magic u32, version u16, type u16, payload_len u32.
-interface editor-memory {
-  /// Read a bulk payload block written by the host into guest memory at offset.
-  /// Returns bytes read, or -1 on error.
-  read-bulk-header: func(offset: u32) -> s32;
-}
+/// Bulk memory protocol (FMBO header) is documented in docs/host-api.md.
+/// Host lowered import: `editor_assets.write_bulk_payload`.

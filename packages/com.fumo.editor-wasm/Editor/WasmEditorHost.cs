@@ -27,7 +27,9 @@ namespace Fumo.EditorWasm
 
         public ToolManifest Manifest => _manifest;
         public HostCallTrace Trace => _trace;
+        public EditorHostBridge Bridge => _bridge;
         public TrapReport LastTrapReport { get; private set; }
+        public ModuleInspect ModuleInspect => ModuleInspect.FromModule(_module);
         public bool IsLoaded => _instance != null;
 
         public WasmEditorHost(bool debugInfo = true)
@@ -48,6 +50,14 @@ namespace Fumo.EditorWasm
             if (wasmBytes == null || wasmBytes.Length == 0)
                 throw new ArgumentException("WASM bytecode is empty.", nameof(wasmBytes));
 
+            AbiVersion.ValidateForLoad(manifest);
+
+            var candidate = Module.FromBytes(_engine, manifest.id ?? "tool", wasmBytes);
+            if (!HostImportRegistryRuntime.ValidateGuestImports(candidate, out var importError))
+                throw new InvalidOperationException(importError);
+            if (!HostImportRegistryRuntime.ValidateGuestExports(candidate, manifest, out var exportError))
+                throw new InvalidOperationException(exportError);
+
             Unload();
 
             _manifest = manifest;
@@ -61,12 +71,12 @@ namespace Fumo.EditorWasm
             _trace.Clear();
             _bridge.RegisterImports(_linker);
 
-            _module = Module.FromBytes(_engine, manifest.id ?? "tool", wasmBytes);
+            _module = candidate;
             _instance = _linker.Instantiate(_store, _module);
             _guestMemory = _instance.GetMemory("memory");
             _bridge.SetGuestMemory(_guestMemory);
 
-            CallExport(manifest.exports.on_init, optional: true);
+            CallExport(manifest.exports.on_init, optional: false);
         }
 
         public void LoadFromManifest(ToolManifest manifest)
@@ -94,15 +104,13 @@ namespace Fumo.EditorWasm
 
             try
             {
-                var func = _instance.GetAction(exportName);
-                if (func == null)
+                if (!TryInvokeExport(exportName))
                 {
                     if (optional)
                         return;
                     throw new MissingMethodException($"Export '{exportName}' not found in WASM module.");
                 }
 
-                func();
                 LastTrapReport = null;
             }
             catch (TrapException ex)
@@ -116,6 +124,27 @@ namespace Fumo.EditorWasm
                 Debug.LogError($"[WasmEditor] Trap in '{exportName}':\n{LastTrapReport.ToJson()}");
                 throw;
             }
+        }
+
+        bool TryInvokeExport(string exportName)
+        {
+            var action = _instance.GetAction(exportName);
+            if (action != null)
+            {
+                action();
+                return true;
+            }
+
+            var funcInt = _instance.GetFunction<int>(exportName);
+            if (funcInt != null)
+            {
+                var code = funcInt();
+                if (code != 0)
+                    Debug.LogWarning($"[WasmEditor] Export '{exportName}' returned non-zero status {code}.");
+                return true;
+            }
+
+            return false;
         }
 
         public void Shutdown()

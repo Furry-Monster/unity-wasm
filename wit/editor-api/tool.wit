@@ -1,40 +1,6 @@
 package fumo:editor-api@1;
 
-interface editor-core {
-  use core.{log-level};
-  log: func(level: log-level, message: string);
-  log-error: func(message: string);
-  get-editor-time: func() -> f64;
-  show-progress: func(title: string, info: string, progress: f32);
-  clear-progress: func();
-}
-
-interface editor-selection {
-  use selection.{object-handle};
-  get-active-object: func() -> option<object-handle>;
-  get-active-objects: func() -> list<object-handle>;
-  get-active-asset-path: func() -> option<string>;
-  get-object-name: func(handle: object-handle) -> option<string>;
-}
-
-interface editor-assets {
-  find-assets: func(filter: string, search-paths: list<string>) -> list<string>;
-  load-text-asset: func(path: string) -> result<string, string>;
-  asset-exists: func(path: string) -> bool;
-}
-
-/// Standard tool lifecycle exports.
-interface tool-lifecycle {
-  on-init: func() -> result;
-  on-shutdown: func();
-  on-menu-click: func();
-}
-
-/// Complete world imported by editor WASM tools.
-world tool-world {
-  import editor-core;
-  import editor-selection;
-  import editor-assets;
-
-  export tool-lifecycle;
-}
+/// Deprecated aggregate world — use [`ffi.wit`](ffi.wit) for the enforceable lowered surface.
+///
+/// Semantic interfaces live in `core.wit`, `selection.wit`, `assets.wit`, and `scene.wit`.
+/// The host contract truth source is `schemas/host-imports.v1.json`.

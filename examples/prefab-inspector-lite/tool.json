@@ -1,0 +1,13 @@
+{
+  "id": "com.fumo.prefab-inspector-lite",
+  "name": "Prefab Inspector Lite",
+  "version": "0.1.0",
+  "abi": "editor-api/1",
+  "entry": "bin/tool.wasm",
+  "menu": "Tools/Wasm Editor/Run Tool/Prefab Inspector Lite",
+  "exports": {
+    "on_init": "on_init",
+    "on_shutdown": "on_shutdown",
+    "on_menu_click": "on_menu_click"
+  }
+}

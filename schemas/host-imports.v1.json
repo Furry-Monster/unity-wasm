@@ -1,0 +1,29 @@
+{
+  "abi": "editor-api/1",
+  "description": "Lowered FFI imports for Unity Editor WASM tools. Single source of truth for Host, Schema, Rust codegen, and contract verification.",
+  "exports": ["on_init", "on_shutdown", "on_menu_click"],
+  "imports": [
+    { "module": "editor_core", "name": "log", "params": ["i32", "i32", "i32"], "returns": [], "tier": 0 },
+    { "module": "editor_core", "name": "log_error", "params": ["i32", "i32"], "returns": [], "tier": 0 },
+    { "module": "editor_core", "name": "get_editor_time", "params": [], "returns": ["f64"], "tier": 0 },
+    { "module": "editor_core", "name": "show_progress", "params": ["i32", "i32", "i32", "i32", "f32"], "returns": [], "tier": 0 },
+    { "module": "editor_core", "name": "clear_progress", "params": [], "returns": [], "tier": 0 },
+
+    { "module": "editor_selection", "name": "get_active_object", "params": [], "returns": ["i64"], "tier": 1 },
+    { "module": "editor_selection", "name": "get_active_objects_count", "params": [], "returns": ["i32"], "tier": 1 },
+    { "module": "editor_selection", "name": "get_active_object_at", "params": ["i32"], "returns": ["i64"], "tier": 1 },
+    { "module": "editor_selection", "name": "get_active_asset_path", "params": ["i32", "i32"], "returns": ["i32"], "tier": 1 },
+    { "module": "editor_selection", "name": "get_object_name", "params": ["i64", "i32", "i32"], "returns": ["i32"], "tier": 1 },
+
+    { "module": "editor_assets", "name": "asset_exists", "params": ["i32", "i32"], "returns": ["i32"], "tier": 2 },
+    { "module": "editor_assets", "name": "find_assets_count", "params": ["i32", "i32", "i32", "i32"], "returns": ["i32"], "tier": 2 },
+    { "module": "editor_assets", "name": "find_asset_at", "params": ["i32", "i32", "i32", "i32", "i32", "i32", "i32"], "returns": ["i32"], "tier": 2 },
+    { "module": "editor_assets", "name": "load_text_asset", "params": ["i32", "i32", "i32", "i32"], "returns": ["i32"], "tier": 2 },
+    { "module": "editor_assets", "name": "write_bulk_payload", "params": ["i32", "i32", "i32", "i32"], "returns": ["i32"], "tier": 2 },
+
+    { "module": "editor_scene", "name": "get_object_path", "params": ["i64", "i32", "i32"], "returns": ["i32"], "tier": 3 },
+    { "module": "editor_scene", "name": "get_serialized_property", "params": ["i64", "i32", "i32", "i32", "i32"], "returns": ["i32"], "tier": 3 },
+    { "module": "editor_scene", "name": "get_component_count", "params": ["i64"], "returns": ["i32"], "tier": 3 },
+    { "module": "editor_scene", "name": "get_component_type_at", "params": ["i64", "i32", "i32", "i32"], "returns": ["i32"], "tier": 3 }
+  ]
+}

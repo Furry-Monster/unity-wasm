@@ -9,7 +9,8 @@ WebAssembly editor extension platform for **Unity 2022 LTS**. Run Rust/AssemblyS
 - **Hot reload** — rebuild `.wasm` without Domain Reload
 - **Structured trap reports** — AI-friendly JSON diagnostics
 - **WIT contracts** — `wit/editor-api/` defines the ABI
-- **Example tools** — `selection-logger`, `asset-scanner`
+- **Example tools** — `selection-logger`, `asset-scanner`, `prefab-inspector-lite`
+- **FFI manifest** — `schemas/host-imports.v1.json` is the enforceable host contract
 
 ## Quick Start
 
@@ -28,6 +29,13 @@ Or build individually:
 ```bash
 cd examples/selection-logger && ./build.sh
 cd examples/asset-scanner && ./build.sh
+cd examples/prefab-inspector-lite && ./build.sh
+```
+
+Verify host/guest contract locally:
+
+```bash
+./scripts/verify-contracts.sh
 ```
 
 ### 3. Run in Unity
@@ -100,7 +108,8 @@ Place tools under `Assets/Editor/Tools/<your-tool>/tool.json` + `bin/tool.wasm`.
 | Tools → Wasm Editor → Run Tool... | Context menu listing all discovered tools (dynamic) |
 | Tools → Wasm Editor → Open Tool Shell | Launcher, logs, trap panel |
 | Tools → Wasm Editor → Export API Schema | Write `schemas/editor-api.schema.json` |
-| Tools → Wasm Editor → Generate Host Bindings | Generate API registry |
+| Tools → Wasm Editor → Generate Host Bindings | Generate registry + API schema from manifest |
+| Tools → Wasm Editor → Verbose Host Import Log | Toggle per-import Console logging |
 
 ## License
 

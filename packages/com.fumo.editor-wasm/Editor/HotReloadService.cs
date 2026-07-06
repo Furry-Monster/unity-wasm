@@ -162,6 +162,15 @@ namespace Fumo.EditorWasm
                     host.Dispose();
                 return false;
             }
+            catch (InvalidOperationException ex)
+            {
+                Debug.LogError(ex.Message);
+                ToolWindowShell.NotifyStatus($"Load failed: {manifest.name}");
+                ToolWindowShell.NotifyLog(ex.Message);
+                if (isNew && host != null)
+                    host.Dispose();
+                return false;
+            }
             catch (Exception ex)
             {
                 Debug.LogError($"[WasmEditor] Load failed for '{manifest.id}': {ex.Message}");

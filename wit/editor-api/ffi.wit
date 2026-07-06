@@ -1,0 +1,26 @@
+package fumo:editor-api@1;
+
+/// Lowered core wasm32 import/export surface.
+///
+/// This WIT package documents the semantic grouping of host imports.
+/// The **enforceable** contract is `schemas/host-imports.v1.json` — module
+/// names, function names, and wasm value types must match exactly.
+///
+/// Guest tools must export:
+///   - on-init       -> i32 (0 = success)
+///   - on-shutdown   -> ()
+///   - on-menu-click -> ()
+///
+/// String arguments use guest linear memory: (ptr: i32, len: i32).
+/// Object handles are opaque u64 values from selection APIs.
+
+world editor-tool {
+  import editor-core;
+  import editor-selection;
+  import editor-assets;
+  import editor-scene;
+
+  export on-init: func() -> s32;
+  export on-shutdown: func();
+  export on-menu-click: func();
+}

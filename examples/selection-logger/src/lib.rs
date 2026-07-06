@@ -1,6 +1,8 @@
-//! MVP example tool: logs current Unity Selection via editor host imports.
+//! MVP example tool: logs current Unity Selection via generated host imports.
 
 #![no_std]
+
+mod imports;
 
 use core::panic::PanicInfo;
 
@@ -9,22 +11,9 @@ fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
-#[link(wasm_import_module = "editor_core")]
-extern "C" {
-    fn log(level: i32, ptr: i32, len: i32);
-    fn get_editor_time() -> f64;
-}
-
-#[link(wasm_import_module = "editor_selection")]
-extern "C" {
-    fn get_active_object() -> i64;
-    fn get_active_asset_path(out_ptr: i32, max_len: i32) -> i32;
-    fn get_object_name(handle: i64, out_ptr: i32, max_len: i32) -> i32;
-}
-
 fn log_str(level: i32, text: &str) {
     unsafe {
-        log(level, text.as_ptr() as i32, text.len() as i32);
+        imports::log(level, text.as_ptr() as i32, text.len() as i32);
     }
 }
 
@@ -42,7 +31,7 @@ pub extern "C" fn on_shutdown() {
 #[no_mangle]
 pub extern "C" fn on_menu_click() {
     unsafe {
-        let t = get_editor_time();
+        let t = imports::get_editor_time();
         log_str(0, "Selection Logger: running");
 
         let mut buf = [0u8; 64];
@@ -52,13 +41,13 @@ pub extern "C" fn on_menu_click() {
         let tlen = write_float(&mut msg[prefix.len()..], t);
         log_str(0, core::str::from_utf8_unchecked(&msg[..prefix.len() + tlen as usize]));
 
-        let handle = get_active_object();
+        let handle = imports::get_active_object();
         if handle == 0 {
             log_str(0, "No active object selected.");
             return;
         }
 
-        let name_len = get_object_name(handle, buf.as_mut_ptr() as i32, buf.len() as i32);
+        let name_len = imports::get_object_name(handle, buf.as_mut_ptr() as i32, buf.len() as i32);
         if name_len > 0 {
             let name = core::str::from_utf8_unchecked(&buf[..name_len as usize]);
             let mut line = [0u8; 512];
@@ -71,7 +60,7 @@ pub extern "C" fn on_menu_click() {
         }
 
         let mut path_buf = [0u8; 512];
-        let path_len = get_active_asset_path(path_buf.as_mut_ptr() as i32, path_buf.len() as i32);
+        let path_len = imports::get_active_asset_path(path_buf.as_mut_ptr() as i32, path_buf.len() as i32);
         if path_len > 0 {
             let path = core::str::from_utf8_unchecked(&path_buf[..path_len as usize]);
             let mut line = [0u8; 768];
