@@ -104,15 +104,13 @@ namespace Fumo.EditorWasm
 
             try
             {
-                var func = _instance.GetAction(exportName);
-                if (func == null)
+                if (!TryInvokeExport(exportName))
                 {
                     if (optional)
                         return;
                     throw new MissingMethodException($"Export '{exportName}' not found in WASM module.");
                 }
 
-                func();
                 LastTrapReport = null;
             }
             catch (TrapException ex)
@@ -126,6 +124,27 @@ namespace Fumo.EditorWasm
                 Debug.LogError($"[WasmEditor] Trap in '{exportName}':\n{LastTrapReport.ToJson()}");
                 throw;
             }
+        }
+
+        bool TryInvokeExport(string exportName)
+        {
+            var action = _instance.GetAction(exportName);
+            if (action != null)
+            {
+                action();
+                return true;
+            }
+
+            var funcInt = _instance.GetFunction<int>(exportName);
+            if (funcInt != null)
+            {
+                var code = funcInt();
+                if (code != 0)
+                    Debug.LogWarning($"[WasmEditor] Export '{exportName}' returned non-zero status {code}.");
+                return true;
+            }
+
+            return false;
         }
 
         public void Shutdown()
